@@ -1,11 +1,12 @@
 const express = require('express');
+const authenticate = require('./middleware/authenticate');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
-app.get('/', (req, res) => {
+app.get('/', authenticate,(req, res) => {
   res.send('Hello, Welcome to the Hansei Project!');
 });
 
