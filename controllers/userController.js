@@ -1,5 +1,35 @@
 const queries = require('../database/queries');
 
+async function showUserProfile(req, res) {
+    const userId = req.params.id;
+
+    const authenticatedUserId = req.user.id;
+    if (parseInt(userId) !== authenticatedUserId) {
+        return res.status(403).json({ error: 'Access denied' });
+    }
+
+    if (!userId) {
+        return res.status(400).json({ error: 'User ID is required' });
+    }
+
+    try {
+        const user = await queries.showUserProfile(userId);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        res.status(200).json({
+            user: {
+                id: user.id,
+                username: user.username,
+                email: user.email
+            }
+        });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to retrieve user profile' });
+    }
+}
+
 async function updateProfile(req, res) {
     const { userId, username, email } = req.body;
 
@@ -31,4 +61,5 @@ async function updateProfile(req, res) {
 
 module.exports = {
     updateProfile,
+    showUserProfile
 };

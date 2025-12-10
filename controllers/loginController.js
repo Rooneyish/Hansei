@@ -29,9 +29,11 @@ async function loginUser(req, res) {
             return res.status(401).json({ error: 'Invalid username or password' });
         }
 
+        const expiresTime = '1d';
+
         const accessToken = jwt.sign(
             {id: user.id, username: user.username, email: user.email},
-            process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' }
+            process.env.ACCESS_TOKEN_SECRET, { expiresIn: expiresTime }
         );
 
         res.status(200).json({
@@ -40,7 +42,8 @@ async function loginUser(req, res) {
                 id: user.id,
                 username: user.username,
                 email: user.email,
-                accessToken
+                accessToken,
+                expiresIn: expiresTime
             }
         });
     } catch (err) {

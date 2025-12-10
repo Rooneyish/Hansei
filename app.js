@@ -11,6 +11,7 @@ app.get('/', authenticate,(req, res) => {
 });
 
 app.use('/api/auth', require('./routes/authRoutes'));
+app.use('/api', require('./routes/userRoutes'));
 
 app.listen(PORT, async() => {
   console.log(`Server is running on http://localhost:${PORT}`);
