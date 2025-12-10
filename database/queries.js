@@ -57,34 +57,23 @@ async function findUserByEmail(email) {
     }
 }
 
-async function loginUser(LoginModel) {
-    const query = 'SELECT * FROM user_profile WHERE username = $1 AND password = $2';
-    const values = [LoginModel.username, LoginModel.password];
-
-    try {
-        const result = await pool.query(query, values);
-        if (result.rowCount === 0) {
-            return null;
-        }
-        return result.rows[0];
-    } catch (err) {
-        console.error('Error during user login', err.stack);
-        throw err;
+async function updateUserProfile(userId, updateFields) {
+    const fieldKeys = Object.keys(updateFields);
+    if (fieldKeys.length === 0) {
+        throw new Error('No fields to update');
     }
-}
 
-async function updateProfile(updateData) {
+    const setClauses = fieldKeys.map((key, index) => `${key} = $${index + 2}`);
+
+    const values = [userId, ...fieldKeys.map(key => updateFields[key])];
+
     const query = `
         UPDATE user_profile 
-        SET username = $2, email = $3
+        SET ${setClauses} 
         WHERE id = $1
+        RETURNING *
     `;
 
-    const values = [
-        updateData.id,
-        updateData.username,
-        updateData.email,
-    ];
 
     try {
         const result = await pool.query(query, values);
@@ -122,6 +111,6 @@ module.exports = {
     registerUser, 
     findUserByUsername,
     findUserByEmail,
-    updateProfile,
-    showUserProfile
+    updateUserProfile,
+    showUserProfile,
 };

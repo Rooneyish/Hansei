@@ -31,20 +31,26 @@ async function showUserProfile(req, res) {
 }
 
 async function updateProfile(req, res) {
-    const { userId, username, email } = req.body;
+    const  userId  = req.params.id;
+    const { username, email } = req.body;
 
-    if (!userId || !username || !email) {
-        return res.status(400).json({ error: 'All fields are required' });
+    const authenticatedUserId = req.user.id;
+    if (parseInt(userId) !== authenticatedUserId) {
+        return res.status(403).json({ error: 'Access denied' });
     }
 
-    const updateData = {
-        id: userId,
-        username: username,
-        email: email,
+    const updateField = {};
+
+    if (username) updateField.username = username;
+    if (email) updateField.email = email;
+
+    const fieldKeys = Object.keys(updateField);
+    if (fieldKeys.length === 0) {
+        return res.status(400).json({ error: 'No fields to update' });
     }
 
     try {
-        await queries.updateUserProfile(updateData);
+        await queries.updateUserProfile(userId,updateField);
         res.status(200).json({
             message: `User profile updated successfully`,
             user: {
