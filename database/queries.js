@@ -100,6 +100,24 @@ async function showUserProfile(userId) {
     }
 }
 
+async function passwordReset(userId, newPassword) {
+    const query = `
+        UPDATE user_profile 
+        SET password = $2 
+        WHERE id = $1
+        RETURNING *
+    `;
+    const values = [userId, newPassword];
+
+    try {
+        const result = await pool.query(query, values);
+        return result.rowCount > 0;
+    } catch (err) {
+        console.error('Error resetting password', err.stack);
+        throw err;
+    }
+}
+
 // const test = new user(1, 'testuser', 'jfaskldfj', 'password123');
 // updateProfile(test).then(result => {
 //     console.log('Update result:', result);
@@ -113,4 +131,5 @@ module.exports = {
     findUserByEmail,
     updateUserProfile,
     showUserProfile,
+    passwordReset
 };

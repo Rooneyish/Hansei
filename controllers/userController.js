@@ -1,4 +1,5 @@
 const queries = require('../database/queries');
+const bcrypt = require('bcryptjs');
 
 async function showUserProfile(req, res) {
     const userId = req.params.id;
@@ -75,8 +76,35 @@ async function updateProfile(req, res) {
     }
 }
 
+async function passwordReset(req, res) {
+    const userId = req.params.id;
+    const { new_password, confirm_password } = req.body;
+
+    const authenticatedUserId = req.user.id;
+    if (parseInt(userId) !== authenticatedUserId) {
+        return res.status(403).json({ error: 'Access denied' });
+    }
+
+    if (!new_password || !confirm_password) {
+        return res.status(400).json({ error: 'All fields are required' });
+    }
+
+    if (new_password !== confirm_password) {
+        return res.status(400).json({ error: 'Passwords do not match' });
+    }
+
+    try {
+        const salt = await bcrypt.genSalt(10);
+        const hashedNewPassword = await bcrypt.hash(new_password, salt);
+        await queries.passwordReset(userId, hashedNewPassword);
+        res.status(200).json({ message: 'Password reset successfully' });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to reset password' });
+    }
+}
 
 module.exports = {
     updateProfile,
-    showUserProfile
+    showUserProfile,
+    passwordReset,
 };
