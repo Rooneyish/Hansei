@@ -21,7 +21,7 @@ async function loginUser(req, res) {
 
         const user = await queries.findUserByUsername(username);
         if (!user) {
-            return res.status(401).json({ error: 'User not found' });
+            return res.status(401).json({ error: 'Invalid username or password' });
         }
 
         const isMatch = await bcrypt.compare(password, user.password);
@@ -51,6 +51,11 @@ async function loginUser(req, res) {
     }
 }
 
+async function logoutUser(req, res) {
+    res.status(200).json({ message: 'User logged out successfully' });
+}
+
 module.exports = {
     loginUser,
+    logoutUser
 };

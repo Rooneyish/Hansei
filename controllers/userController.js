@@ -56,19 +56,25 @@ async function updateProfile(req, res) {
         }
         updateField.email = email;
     }
+
     const fieldKeys = Object.keys(updateField);
     if (fieldKeys.length === 0) {
         return res.status(400).json({ error: 'No fields to update' });
     }
 
     try {
-        await queries.updateUserProfile(userId,updateField);
+        const updatedUser = await queries.updateUserProfile(userId,updateField);
+        
+        if (!updatedUser) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
         res.status(200).json({
             message: `User profile updated successfully`,
             user: {
-                id: userId,
-                username: username,
-                email: email
+                id: updatedUser.userId,
+                username: updatedUser.username,
+                email: updatedUser.email
             }
         });
     } catch (err) {
@@ -78,14 +84,14 @@ async function updateProfile(req, res) {
 
 async function passwordReset(req, res) {
     const userId = req.params.id;
-    const { new_password, confirm_password } = req.body;
+    const {current_password, new_password, confirm_password } = req.body;
 
     const authenticatedUserId = req.user.id;
     if (parseInt(userId) !== authenticatedUserId) {
         return res.status(403).json({ error: 'Access denied' });
     }
 
-    if (!new_password || !confirm_password) {
+    if (!current_password || !new_password || !confirm_password) {
         return res.status(400).json({ error: 'All fields are required' });
     }
 
@@ -94,6 +100,13 @@ async function passwordReset(req, res) {
     }
 
     try {
+        const storedPassword = await queries.getPasswordByUserId(userId);
+        const isMatch = await bcrypt.compare(current_password, storedPassword);
+
+        if (!isMatch) {
+            return res.status(401).json({ error: 'Current password is incorrect' });
+        }
+
         const salt = await bcrypt.genSalt(10);
         const hashedNewPassword = await bcrypt.hash(new_password, salt);
         await queries.passwordReset(userId, hashedNewPassword);

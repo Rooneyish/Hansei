@@ -9,11 +9,14 @@ async function registerUser(req, res) {
         return res.status(400).json({ error: 'All fields are required' });
     }
 
-    if (username == await queries.findUserByUsername(username)) {
+    const existingUsername = await queries.findUserByUsername(username);
+    const existingEmail = await queries.findUserByEmail(email);
+
+    if (existingUsername) {
         return res.status(409).json({ error: 'Username already exists' });
     }
 
-    if (email == await queries.findUserByEmail(email)) {
+    if (existingEmail) {
         return res.status(409).json({ error: 'Email already exists' });
     }
 
@@ -30,13 +33,13 @@ async function registerUser(req, res) {
         if (!registeredUser) {
             return res.status(500).json({ error: 'User registration failed' });
         }
-        
+
         res.status(201).json({
             message: `User ${newUser.username} registered successfully`,
             user: {
-                id: newUser.id,
-                username: newUser.username,
-                email: newUser.email
+                id: registeredUser.id,
+                username: registeredUser.username,
+                email: registeredUser.email
             }
         });
     } catch (err) {

@@ -1,7 +1,5 @@
 const pool = require('../database/db');
 UserModel = require('../models/userModel');
-loginmodel = require('../models/loginModel');
-
 
 async function registerUser(UserModel) {
     const insertQuery = `
@@ -77,7 +75,10 @@ async function updateUserProfile(userId, updateFields) {
 
     try {
         const result = await pool.query(query, values);
-        return result.rowCount > 0;
+        if (result.rowCount === 0) {
+            return null;
+        }
+        return result.rows[0];
     } catch (err) {
         console.error('Error updating user profile', err.stack);
         throw err;
@@ -96,6 +97,22 @@ async function showUserProfile(userId) {
         return result.rows[0];
     } catch (err) {
         console.error('Error retrieving user profile', err.stack);
+        throw err;
+    }
+}
+
+async function getPasswordByUserId(userId) {
+    const query = 'SELECT password FROM user_profile WHERE id = $1';
+    const values = [userId];
+
+    try {
+        const result = await pool.query(query, values);
+        if (result.rowCount === 0) {
+            return null;
+        }
+        return result.rows[0].password;
+    } catch (err) {
+        console.error('Error retrieving user password', err.stack);
         throw err;
     }
 }
@@ -131,5 +148,6 @@ module.exports = {
     findUserByEmail,
     updateUserProfile,
     showUserProfile,
-    passwordReset
+    passwordReset,
+    getPasswordByUserId
 };

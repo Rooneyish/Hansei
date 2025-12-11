@@ -12,7 +12,6 @@ async function authenticate(req, res, next) {
 
         const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
         req.user = decoded;
-        console.log("Authenticated User:", req.user);
         next();
     } catch (err) {
         console.error("Middleware Error", err);
