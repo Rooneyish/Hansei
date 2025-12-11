@@ -21,7 +21,7 @@ async function loginUser(req, res) {
 
         const user = await queries.findUserByUsername(username);
         if (!user) {
-            return res.status(404).json({ error: 'User not found' });
+            return res.status(401).json({ error: 'User not found' });
         }
 
         const isMatch = await bcrypt.compare(password, user.password);

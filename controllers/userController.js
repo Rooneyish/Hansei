@@ -41,9 +41,20 @@ async function updateProfile(req, res) {
 
     const updateField = {};
 
-    if (username) updateField.username = username;
-    if (email) updateField.email = email;
-
+    if (username){
+        const usernameExists = await queries.findUserByUsername(username);
+        if (usernameExists && usernameExists.id !== parseInt(userId)) {
+            return res.status(409).json({ error: 'Username already exists' });
+        }
+        updateField.username = username;
+    } 
+    if (email) {
+        const emailExists = await queries.findUserByEmail(email);
+        if (emailExists && emailExists.id !== parseInt(userId)) {
+            return res.status(409).json({ error: 'Email already exists' });
+        }
+        updateField.email = email;
+    }
     const fieldKeys = Object.keys(updateField);
     if (fieldKeys.length === 0) {
         return res.status(400).json({ error: 'No fields to update' });

@@ -16,7 +16,7 @@ async function authenticate(req, res, next) {
         next();
     } catch (err) {
         console.error("Middleware Error", err);
-        res.status(500).json({ error: "Internal server error" });
+        res.status(403).json({ error: "Access denied: Invalid or expired token" });
     }
 }
 

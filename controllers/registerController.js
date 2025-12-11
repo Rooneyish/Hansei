@@ -9,24 +9,28 @@ async function registerUser(req, res) {
         return res.status(400).json({ error: 'All fields are required' });
     }
 
-    if (username == queries.findUserByUsername(username)) {
+    if (username == await queries.findUserByUsername(username)) {
         return res.status(409).json({ error: 'Username already exists' });
     }
 
-    if (email == queries.findUserByEmail(email)) {
+    if (email == await queries.findUserByEmail(email)) {
         return res.status(409).json({ error: 'Email already exists' });
     }
 
     if (password !== confirm_password) {
         return res.status(400).json({ error: 'Passwords do not match' });
     }
-
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-    
     try {
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+    
         const newUser = new UserModel(null, username, email, hashedPassword);
-        await queries.registerUser(newUser);
+        const registeredUser = await queries.registerUser(newUser);
+
+        if (!registeredUser) {
+            return res.status(500).json({ error: 'User registration failed' });
+        }
+        
         res.status(201).json({
             message: `User ${newUser.username} registered successfully`,
             user: {

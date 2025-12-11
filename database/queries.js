@@ -8,6 +8,7 @@ async function registerUser(UserModel) {
         INSERT INTO user_profile 
         (username, email, password) 
         VALUES ($1, $2, $3)
+        RETURNING id, username, email
     `;
 
     const values = [
@@ -20,11 +21,10 @@ async function registerUser(UserModel) {
         const result = await pool.query(insertQuery, values);
         if (result.rowCount > 0) {
             console.log(`User ${UserModel.username} registered successfully.`);
-            return true;
-        } else {
-            return false;
+            return result.rows[0];
+        }else {
+            return null;
         }
-
     } catch (error) {
         console.error('Error during user registration:', error.stack);
         throw error;
