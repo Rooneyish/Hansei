@@ -16,7 +16,7 @@ async function loginUser(req, res) {
         const loginData = new LoginModel(username, password);
 
         if (!loginData.username || !loginData.password) {
-            return res.status(400).json({ error: 'Invalid login data' });
+            return res.status(400).json({ error: 'Invalid username or password' });
         }
 
         const user = await queries.findUserByUsername(username);

@@ -135,6 +135,19 @@ async function passwordReset(userId, newPassword) {
     }
 }
 
+async function deleteUser(userId) {
+    const query = 'DELETE FROM user_profile WHERE id = $1';
+    const values = [userId];
+
+    try {
+        const result = await pool.query(query, values);
+        return result.rowCount > 0;
+    } catch (err) {
+        console.error('Error deleting user', err.stack);
+        throw err;
+    }
+}
+
 // const test = new user(1, 'testuser', 'jfaskldfj', 'password123');
 // updateProfile(test).then(result => {
 //     console.log('Update result:', result);
@@ -149,5 +162,6 @@ module.exports = {
     updateUserProfile,
     showUserProfile,
     passwordReset,
-    getPasswordByUserId
+    getPasswordByUserId,
+    deleteUser
 };

@@ -2,16 +2,8 @@ const queries = require('../database/queries');
 const bcrypt = require('bcryptjs');
 
 async function showUserProfile(req, res) {
-    const userId = req.params.id;
-
-    const authenticatedUserId = req.user.id;
-    if (parseInt(userId) !== authenticatedUserId) {
-        return res.status(403).json({ error: 'Access denied' });
-    }
-
-    if (!userId) {
-        return res.status(400).json({ error: 'User ID is required' });
-    }
+    const userId = req.user.id;
+    console.log("User ID:", userId);
 
     try {
         const user = await queries.showUserProfile(userId);
@@ -31,14 +23,24 @@ async function showUserProfile(req, res) {
     }
 }
 
-async function updateProfile(req, res) {
-    const  userId  = req.params.id;
-    const { username, email } = req.body;
+async function deleteUser(req, res) {
+    const userId = req.user.id;
 
-    const authenticatedUserId = req.user.id;
-    if (parseInt(userId) !== authenticatedUserId) {
-        return res.status(403).json({ error: 'Access denied' });
+    try {
+        const deleted = await queries.deleteUser(userId);
+        if (!deleted) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        res.status(200).json({ message: `User ${userId} deleted successfully` });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to delete user' });
     }
+}
+
+async function updateProfile(req, res) {
+    const  userId  = req.user.id;
+    const { username, email } = req.body;
 
     const updateField = {};
 
@@ -72,7 +74,7 @@ async function updateProfile(req, res) {
         res.status(200).json({
             message: `User profile updated successfully`,
             user: {
-                id: updatedUser.userId,
+                id: updatedUser.id,
                 username: updatedUser.username,
                 email: updatedUser.email
             }
@@ -83,13 +85,8 @@ async function updateProfile(req, res) {
 }
 
 async function passwordReset(req, res) {
-    const userId = req.params.id;
+    const userId = req.user.id;
     const {current_password, new_password, confirm_password } = req.body;
-
-    const authenticatedUserId = req.user.id;
-    if (parseInt(userId) !== authenticatedUserId) {
-        return res.status(403).json({ error: 'Access denied' });
-    }
 
     if (!current_password || !new_password || !confirm_password) {
         return res.status(400).json({ error: 'All fields are required' });
@@ -120,4 +117,5 @@ module.exports = {
     updateProfile,
     showUserProfile,
     passwordReset,
+    deleteUser,
 };
