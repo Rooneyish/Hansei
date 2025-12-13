@@ -148,12 +148,73 @@ async function deleteUser(userId) {
     }
 }
 
-// const test = new user(1, 'testuser', 'jfaskldfj', 'password123');
-// updateProfile(test).then(result => {
-//     console.log('Update result:', result);
-// }).catch(err => {
-//     console.error('Error during update test:', err);
-// });   
+async function checkInUser(userId) {
+    const today = new Date();
+
+    const todayString = today.toISOString().split('T')[0];
+    
+    const fetchQuery = `
+        SELECT current_streak, last_active_date, longest_streak
+        FROM user_profile 
+        WHERE id = $1
+    `;
+
+    const values = [userId];
+
+    try{
+        const result = await pool.query(fetchQuery, values);
+        const userData = result.rows[0];
+
+        if (!userData) {
+            throw new Error('User not found');
+        }
+
+        const {current_streak, last_active_date, longest_streak} = userData;
+        
+        let newStreak = current_streak;
+        let newLongestStreak = longest_streak;
+        let newLastCheckIn = todayString;
+
+        const lastActiveStr = last_active_date ? last_active_date.toISOString().split('T')[0] : null;
+
+        if (lastActiveStr === todayString) {
+            return { current_streak: newStreak, longest_streak: newLongestStreak, message: 'Already checked in today' };
+        }
+
+        const yesterday = new Date(today);
+        yesterday.setUTCHours(0, 0, 0, 0);
+        yesterday.setDate(today.getDate() - 1);
+        const yesterdayString = yesterday.toISOString().split('T')[0];
+
+        if (lastActiveStr === yesterdayString) {
+            newStreak += 1;
+        } else {
+            newStreak = 1;
+        }
+
+        if (newStreak > newLongestStreak) {
+            newLongestStreak = newStreak;
+        }
+
+        const updateQuery = `
+            UPDATE user_profile 
+            SET current_streak = $2, last_active_date = $3 , longest_streak = $4
+            WHERE id = $1
+            RETURNING current_streak, longest_streak
+        `;
+        const updateValues = [userId, newStreak, newLastCheckIn, newLongestStreak];
+        const updateResult =  await pool.query(updateQuery, updateValues);
+        
+        return { 
+            current_streak: updateResult.rows[0].current_streak, 
+            longest_streak: updateResult.rows[0].longest_streak,
+            message:newStreak > 1 ? 'Streak continued!' : 'Streak started/reset!'
+        };
+    }catch(err){
+        console.error('Error during check-in', err.stack);
+        throw err;
+    }
+}
 
 module.exports = {
     registerUser, 
@@ -163,5 +224,6 @@ module.exports = {
     showUserProfile,
     passwordReset,
     getPasswordByUserId,
-    deleteUser
+    deleteUser,
+    checkInUser
 };
