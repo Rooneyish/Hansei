@@ -2,8 +2,8 @@ import pandas as pd
 import numpy as np
 import os
 
-DATA_DIR = 'data/full_dataset/'
-DATA_COMBINED_DIR = 'data/combined_dataset/'
+DATA_DIR = '../data/full_dataset/'
+DATA_COMBINED_DIR = '../data/combined_dataset/'
 
 FILE_1 = 'goemotions_1.csv'
 FILE_2 = 'goemotions_2.csv'
