@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import { Text, Animated, StyleSheet, Easing } from 'react-native';
+import { Text, Animated, StyleSheet, Easing, View, SafeAreaView } from 'react-native';
+import GradientBackground from '../components/GradientBackground';
 
 const WelcomeScreen = () => {
   const rotateAnim = useRef(new Animated.Value(0)).current;
@@ -16,7 +17,7 @@ const WelcomeScreen = () => {
       rotateAnim.setValue(0);
       Animated.timing(rotateAnim, {
         toValue: 1,
-        duration: 3000,
+        duration: 2000,
         easing: Easing.linear,
         useNativeDriver: true,
       }).start(() => startRotation());
@@ -30,22 +31,59 @@ const WelcomeScreen = () => {
   });
 
   return (
-    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
-      <Animated.Image
-        source={require('../assets/logo_dark.png')}
-        style={[styles.logo, { transform: [{ rotate: spin }] }]}
-      />
-      <Text style={styles.title}>Hansei</Text>
-      <Text style={styles.subtitle}>Loading...</Text>
-    </Animated.View>
+    <View style={styles.container}>
+      <GradientBackground />
+
+      <SafeAreaView style={styles.safeArea}>
+        <Animated.View style={[styles.innerContent, { opacity: fadeAnim }]}>
+          <Animated.Image
+            source={require('../assets/logo_dark.png')} 
+            style={[styles.logo, { transform: [{ rotate: spin }] }]}
+          />
+          <Text style={styles.title}>Hansei</Text>
+          <Text style={styles.subtitle}>Loading...</Text>
+        </Animated.View>
+      </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#d6f3f4' },
-  logo: { width: 200, height: 200, marginBottom: 20, resizeMode: 'contain' },
-  title: { fontSize: 32, fontWeight: 'bold', color: '#333' },
-  subtitle: { marginTop: 10, color: '#666', letterSpacing: 2 },
+  container: {
+    flex: 1,
+    backgroundColor: '#004346', 
+  },
+  safeArea: {
+    flex: 1,
+  },
+  innerContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  logo: {
+    width: 180, 
+    height: 180,
+    marginBottom: 20,
+    resizeMode: 'contain',
+  },
+  title: {
+    fontSize: 40,
+    fontWeight: 'bold',
+    color: '#172a3a', 
+    letterSpacing: 1,
+    textShadowColor: 'rgba(0, 0, 0, 0.15)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 8,
+  },
+  subtitle: {
+    marginTop: 10,
+    color: '#508991', 
+    letterSpacing: 4,
+    fontSize: 14,
+    fontWeight: '700',
+    textTransform: 'uppercase', 
+  },
 });
 
 export default WelcomeScreen;

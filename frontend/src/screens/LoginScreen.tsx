@@ -8,10 +8,17 @@ import {
   Alert, 
   Image 
 } from 'react-native';
+import GradientBackground from '../components/GradientBackground';
 
-const LoginScreen = ({ onNavigate }: { onNavigate: () => void }) => {
+interface LoginScreenProps {
+  onNavigateRegister: () => void;
+  onNavigateHome: () => void;
+}
+
+const LoginScreen = ({ onNavigateRegister, onNavigateHome }: LoginScreenProps) => {
   return (
     <View style={styles.container}>
+      <GradientBackground />
       {/* Header section */}
       <View style={styles.headerRow}>
         <Text style={styles.header}>Login to Hansei</Text>
@@ -48,14 +55,14 @@ const LoginScreen = ({ onNavigate }: { onNavigate: () => void }) => {
       <View style={styles.buttonRow}>
         <TouchableOpacity
           style={[styles.button, styles.loginButtonMain]}
-          onPress={() => Alert.alert('Login', 'Welcome back!')}
+          onPress={onNavigateHome}
         >
           <Text style={styles.buttonText}>Login</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.button, styles.registerLinkButton]}
-          onPress={onNavigate}
+          onPress={onNavigateRegister}
         >
           <Text style={[styles.buttonText, styles.registrationButtonText]}>Register</Text>
         </TouchableOpacity>

@@ -3,14 +3,15 @@ import { Animated, View, StyleSheet } from 'react-native';
 import WelcomeScreen from './src/screens/WelcomeScreen';
 import RegistrationScreen from './src/screens/RegistrationScreen';
 import LoginScreen from './src/screens/LoginScreen';
+import HomeScreen from './src/screens/HomeScreen';
 
 const App = () => {
-  const [currentScreen, setCurrentScreen] = useState<'welcome' | 'login' | 'register'>('welcome');
+  const [currentScreen, setCurrentScreen] = useState<'welcome' | 'login' | 'register' | 'home'>('welcome');
 
   const fadeValue = useRef(new Animated.Value(1)).current;
 
 
-  const navigateTo = useCallback((screenName: 'welcome' | 'login' | 'register') => {
+  const navigateTo = useCallback((screenName: 'welcome' | 'login' | 'register' | 'home') => {
     Animated.timing(fadeValue, {
       toValue: 0,
       duration: 500,
@@ -27,12 +28,14 @@ const App = () => {
 
 
   useEffect(() => {
-    const timer = setTimeout(() => {
+    if (currentScreen === 'welcome') {
+      const timer = setTimeout(() => {
       navigateTo('login');
     }, 3000);
 
     return () => clearTimeout(timer);
-  }, [navigateTo]);
+    }
+  }, [currentScreen,navigateTo]);
 
 
   const renderScreen = () => {
@@ -40,9 +43,14 @@ const App = () => {
       case 'welcome':
         return <WelcomeScreen />;
       case 'login':
-        return <LoginScreen onNavigate={() => navigateTo('register')} />;
+        return <LoginScreen 
+        onNavigateRegister={() => navigateTo('register')}
+        onNavigateHome={() => navigateTo('home')}
+         />;
       case 'register':
         return <RegistrationScreen onNavigate={() => navigateTo('login')} />;
+      case 'home':
+        return <HomeScreen />;
       default:
         return <WelcomeScreen />;
     }

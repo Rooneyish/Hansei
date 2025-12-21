@@ -8,6 +8,7 @@ import {
   Alert,
   Image,
 } from 'react-native';
+import GradientBackground from '../components/GradientBackground';
 
 const RegistrationScreen = ({ onNavigate }: { onNavigate: () => void }) => {
   const [username, setUsername] = useState('');
@@ -24,6 +25,7 @@ const RegistrationScreen = ({ onNavigate }: { onNavigate: () => void }) => {
 
   return (
     <View style={styles.container}>
+      <GradientBackground />
       <View style={styles.headerRow}>
         <Text style={styles.header}>Welcome to Hansei!</Text>
         <Image
@@ -51,6 +53,14 @@ const RegistrationScreen = ({ onNavigate }: { onNavigate: () => void }) => {
         <TextInput
           style={styles.input}
           placeholder="Password"
+          secureTextEntry
+          placeholderTextColor="#555"
+          value={password}
+          onChangeText={setPassword}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Confirm Password"
           secureTextEntry
           placeholderTextColor="#555"
           value={password}
