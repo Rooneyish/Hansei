@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const UserModel = require('../models/userModel');
 
 async function registerUser(req, res) {
-    const { username, email, password, confirm_password } = req.body;
+    const { username, email, password} = req.body;
 
     if (!username || !email || !password) {
         return res.status(400).json({ error: 'All fields are required' });
@@ -19,10 +19,7 @@ async function registerUser(req, res) {
     if (existingEmail) {
         return res.status(409).json({ error: 'Email already exists' });
     }
-
-    if (password !== confirm_password) {
-        return res.status(400).json({ error: 'Passwords do not match' });
-    }
+    
     try {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);

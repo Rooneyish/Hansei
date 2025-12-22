@@ -9,18 +9,39 @@ import {
   Image,
 } from 'react-native';
 import GradientBackground from '../components/GradientBackground';
+import apiClient from '../api/client';
 
 const RegistrationScreen = ({ onNavigate }: { onNavigate: () => void }) => {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfrimPassword] = useState('');
 
-  const handleRegister = () => {
-    if (!username || !email || !password) {
+  const handleRegister = async() => {
+    if (!username || !email || !password || !confirmPassword) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
-    Alert.alert('Success', `Welcome, ${username}! Registration complete.`);
+
+    if (password !== confirmPassword) {
+      Alert.alert('Error', 'Passwords do not match');
+      return;
+    }
+
+    try {
+      const response = await apiClient.post('/auth/register', {
+        username,
+        email,
+        password,
+      });
+
+      Alert.alert('Success', "Registration Complete. Please Login");
+      onNavigate();
+
+    } catch (err) {
+      const errorMsg = err.response?.data?.error || 'Something went wrong';
+      Alert.alert('Registration Error', errorMsg);
+    }
   };
 
   return (
@@ -63,8 +84,8 @@ const RegistrationScreen = ({ onNavigate }: { onNavigate: () => void }) => {
           placeholder="Confirm Password"
           secureTextEntry
           placeholderTextColor="#555"
-          value={password}
-          onChangeText={setPassword}
+          value={confirmPassword}
+          onChangeText={setConfrimPassword}
         />
       </View>
 
@@ -134,7 +155,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   registerButtonMain: {
-    flex: 2, 
+    flex: 2,
     marginRight: 10,
     backgroundColor: '#172a3a',
   },
@@ -151,8 +172,7 @@ const styles = StyleSheet.create({
   loginButtonText: {
     color: '#172a3a',
   },
-  form: {
-  },
+  form: {},
 });
 
 export default RegistrationScreen;

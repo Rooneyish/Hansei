@@ -8,8 +8,8 @@ import {
   Animated,
   TextInput,
   ScrollView,
-  SafeAreaView,
 } from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import LinearGradient from 'react-native-linear-gradient';
 import GradientBackground from '../components/GradientBackground';
