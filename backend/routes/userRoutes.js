@@ -9,5 +9,6 @@ router.patch('/profile', authenticate, userController.updateProfile);
 router.patch('/profile/change-password', authenticate, userController.passwordReset);
 router.delete('/profile', authenticate, userController.deleteUser);
 router.post('/profile/check-in', authenticate, streakController.checkInUser);
+router.get('/profile/streak', authenticate, streakController.getStreakCount);
 
 module.exports = router;

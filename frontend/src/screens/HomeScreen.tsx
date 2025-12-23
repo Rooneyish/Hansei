@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -8,18 +8,45 @@ import {
   Animated,
   TextInput,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import LinearGradient from 'react-native-linear-gradient';
 import GradientBackground from '../components/GradientBackground';
 import NavigationBar from '../components/NavigationBar';
+import apiClient from '../api/client';
 
 const HomeScreen = () => {
+  const [streak, setStreak] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchStreak = async () => {
+    try {
+      setLoading(true);
+      const response = await apiClient.post('/profile/check-in');
+
+      if (response.data && response.data.streak !== undefined) {
+        setStreak(response.data.streak);
+        console.log('Server Message:', response.data.message);
+      }
+    } catch (err) {
+      console.log('Error:', err);
+      const fallback = await apiClient.get('/profile/streak');
+      setStreak(fallback.data.streak || 0);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStreak();
+  }, []);
+
   return (
     <View style={styles.container}>
       <GradientBackground />
-      
+
       <SafeAreaView style={styles.safeArea}>
         {/* Fixed Header */}
         <View style={styles.headerRow}>
@@ -30,23 +57,56 @@ const HomeScreen = () => {
             source={require('../assets/logo_dark.png')}
             style={styles.smallLogo}
           />
-          <View style={{ width: 30 }} /> 
+          <View style={{ width: 30 }} />
         </View>
 
-        <ScrollView 
-          showsVerticalScrollIndicator={false} 
+        <ScrollView
+          showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
-          {/* Mood Bar Gradient */}
-          <LinearGradient
-            colors={['rgba(213,243,243,0.5)', 'rgba(213,242,223,0.5)', 'rgba(213,233,242,0.5)']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.moodBar}
-          >
-            <Text style={styles.moodText}>Mood Status</Text>
-            <Text style={styles.emoji}>😊</Text>
-          </LinearGradient>
+          <View style={styles.statusBar}>
+            {/* Daily Streaks Bar*/}
+            <LinearGradient
+              colors={[
+                'rgba(213,243,243,0.5)',
+                'rgba(213,242,223,0.5)',
+                'rgba(213,233,242,0.5)',
+              ]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.statusBarInner}
+            >
+              <View>
+                <Text style={styles.statusText}>Daily Streaks</Text>
+                {loading ? (
+                  <ActivityIndicator size="small" color="#004346" />
+                ) : (
+                  <Text style={styles.statusValue}>{streak ?? 0}</Text>
+                )}
+              </View>
+              <Text style={styles.emoji}>🔥</Text>
+            </LinearGradient>
+
+            {/* Mood Bar */}
+            <LinearGradient
+              colors={[
+                'rgba(213,243,243,0.5)',
+                'rgba(213,242,223,0.5)',
+                'rgba(213,233,242,0.5)',
+              ]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.statusBarInner}
+            >
+              <View>
+                <Text style={styles.statusText}>Mood</Text>
+                <Text style={[styles.statusValue, { fontSize: 20 }]}>
+                  Happy
+                </Text>
+              </View>
+              <Text style={styles.emoji}>😊</Text>
+            </LinearGradient>
+          </View>
 
           {/* Journal Entry Box */}
           <View style={styles.journalBox}>
@@ -78,8 +138,6 @@ const HomeScreen = () => {
               ))}
             </View>
           </View>
-
-          <View style={{ height: 120 }} />
         </ScrollView>
       </SafeAreaView>
 
@@ -90,8 +148,10 @@ const HomeScreen = () => {
 
 const ActivityCard = ({ activity }) => {
   const scale = new Animated.Value(1);
-  const onPressIn = () => Animated.spring(scale, { toValue: 0.95, useNativeDriver: true }).start();
-  const onPressOut = () => Animated.spring(scale, { toValue: 1, useNativeDriver: true }).start();
+  const onPressIn = () =>
+    Animated.spring(scale, { toValue: 0.95, useNativeDriver: true }).start();
+  const onPressOut = () =>
+    Animated.spring(scale, { toValue: 1, useNativeDriver: true }).start();
 
   return (
     <Pressable
@@ -135,22 +195,39 @@ const styles = StyleSheet.create({
     height: 50,
     resizeMode: 'contain',
   },
-  moodBar: {
+  statusBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 15,
+  },
+  statusBarInner: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 10,
-    width: '100%',
-    height: 70,
+    flex: 1,
+    height: 80,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: 'rgba(23, 43, 58, 0.5)',
-    paddingHorizontal: 20,
+    paddingHorizontal: 15,
   },
-  moodText: {
+  statusText: {
     color: '#004346',
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    opacity: 0.6,
+    marginBottom: 2,
+  },
+  statusValue: {
+    color: '#004346',
+    fontSize: 32,
+    fontWeight: '800',
+    lineHeight: 38,
+    letterSpacing: -0.5,
+    includeFontPadding: false,
   },
   emoji: {
     fontSize: 28,

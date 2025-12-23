@@ -148,10 +148,25 @@ async function deleteUser(userId) {
     }
 }
 
+async function getStreak(userId){
+    const fetchQuery='SELECT current_streak FROM user_profile WHERE id = $1';
+    const values = [userId]
+    
+    try{
+        const result = await pool.query(fetchQuery, values)
+        const streak = result.rows[0]
+        return streak
+    }
+    catch(err){
+        console.error('Error finding streaks count', err.stack)
+        throw err
+    }
+}
+
 async function checkInUser(userId) {
     const today = new Date();
 
-    const todayString = today.toISOString().split('T')[0];
+    const todayString = today.toLocaleDateString('en-CA');
     
     const fetchQuery = `
         SELECT current_streak, last_active_date, longest_streak
@@ -175,16 +190,15 @@ async function checkInUser(userId) {
         let newLongestStreak = longest_streak;
         let newLastCheckIn = todayString;
 
-        const lastActiveStr = last_active_date ? last_active_date.toISOString().split('T')[0] : null;
+        const lastActiveStr = last_active_date ? last_active_date.toLocaleDateString('en-CA'): null;
 
         if (lastActiveStr === todayString) {
             return { current_streak: newStreak, longest_streak: newLongestStreak, message: 'Already checked in today' };
         }
 
         const yesterday = new Date(today);
-        yesterday.setUTCHours(0, 0, 0, 0);
         yesterday.setDate(today.getDate() - 1);
-        const yesterdayString = yesterday.toISOString().split('T')[0];
+        const yesterdayString = yesterday.toLocaleDateString('en-CA');
 
         if (lastActiveStr === yesterdayString) {
             newStreak += 1;
@@ -225,5 +239,6 @@ module.exports = {
     passwordReset,
     getPasswordByUserId,
     deleteUser,
-    checkInUser
+    checkInUser,
+    getStreak
 };
