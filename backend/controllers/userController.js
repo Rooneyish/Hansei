@@ -15,7 +15,9 @@ async function showUserProfile(req, res) {
             user: {
                 id: user.id,
                 username: user.username,
-                email: user.email
+                email: user.email,
+                current_streak: user.current_streak,
+                longest_streak: user.longest_streak
             }
         });
     } catch (err) {

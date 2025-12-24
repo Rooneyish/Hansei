@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import { Text, Animated, StyleSheet, Easing, View, SafeAreaView } from 'react-native';
+import { Text, Animated, StyleSheet, Easing, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import GradientBackground from '../components/GradientBackground';
 
 const WelcomeScreen = () => {

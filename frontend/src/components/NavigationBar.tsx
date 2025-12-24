@@ -9,7 +9,12 @@ import {
 } from 'react-native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 
-const NavigationBar = () => {
+const NavigationBar = ({
+  onNavigateHome,
+  onNavigateProfile,
+  onNavigateInsights,
+  onNavigateSettings,
+}) => {
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -33,12 +38,10 @@ const NavigationBar = () => {
 
   return (
     <View style={styles.navBar}>
-      <NavItem icon="home" />
-      <NavItem icon="bar-chart" />
+      <NavItem icon="home" onPress={onNavigateHome} />
+      <NavItem icon="bar-chart" onPress={onNavigateInsights} />
       <View style={styles.aiButtonContainer}>
-        <Animated.View
-          style={[{ transform: [{ scale: pulseAnim }] }]}
-        />
+        <Animated.View style={[{ transform: [{ scale: pulseAnim }] }]} />
         <TouchableOpacity activeOpacity={0.8} style={styles.aiButton}>
           <View style={styles.aiButtonInner}>
             <Image
@@ -48,14 +51,14 @@ const NavigationBar = () => {
           </View>
         </TouchableOpacity>
       </View>
-      <NavItem icon="settings" />
-      <NavItem icon="person" />
+      <NavItem icon="settings" onPress={onNavigateSettings} />
+      <NavItem icon="person" onPress={onNavigateProfile} />
     </View>
   );
 };
 
-const NavItem = ({ icon }) => (
-  <TouchableOpacity style={styles.navItem}>
+const NavItem = ({ icon, onPress }) => (
+  <TouchableOpacity style={styles.navItem} onPress={onPress}>
     <MaterialIcons name={icon} size={32} color="rgba(23, 43, 58, 0.82)" />
   </TouchableOpacity>
 );
@@ -63,14 +66,14 @@ const NavItem = ({ icon }) => (
 const styles = StyleSheet.create({
   navBar: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255, 255, 255, 0.12)', 
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
     borderRadius: 40,
     height: 50,
     alignItems: 'center',
     justifyContent: 'space-around',
     paddingHorizontal: 10,
     position: 'absolute',
-    bottom: 15, 
+    bottom: 15,
     left: 10,
     right: 10,
     borderWidth: 1,
@@ -84,7 +87,7 @@ const styles = StyleSheet.create({
   aiButtonContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: -45, 
+    marginTop: -45,
   },
   aiButton: {
     width: 60,
@@ -98,7 +101,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-    smallLogo: {
+  smallLogo: {
     width: 50,
     height: 50,
     resizeMode: 'contain',

@@ -4,53 +4,94 @@ import WelcomeScreen from './src/screens/WelcomeScreen';
 import RegistrationScreen from './src/screens/RegistrationScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import HomeScreen from './src/screens/HomeScreen';
+import UserProfileScreen from './src/screens/UserProfileScreen';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const App = () => {
-  const [currentScreen, setCurrentScreen] = useState<'welcome' | 'login' | 'register' | 'home'>('welcome');
+  const [currentScreen, setCurrentScreen] = useState<
+    'welcome' | 'login' | 'register' | 'home' | 'profile' | 'insights'
+  >('welcome');
 
   const fadeValue = useRef(new Animated.Value(1)).current;
 
-
-  const navigateTo = useCallback((screenName: 'welcome' | 'login' | 'register' | 'home') => {
-    Animated.timing(fadeValue, {
-      toValue: 0,
-      duration: 500,
-      useNativeDriver: true,
-    }).start(() => {
-      setCurrentScreen(screenName);
+  const navigateTo = useCallback(
+    (
+      screenName:
+        | 'welcome'
+        | 'login'
+        | 'register'
+        | 'home'
+        | 'profile'
+        | 'insights',
+    ) => {
+      if (screenName === currentScreen) return;
       Animated.timing(fadeValue, {
-        toValue: 1,
+        toValue: 0,
         duration: 500,
         useNativeDriver: true,
-      }).start();
-    });
-  }, [fadeValue]);
-
+      }).start(() => {
+        setCurrentScreen(screenName);
+        Animated.timing(fadeValue, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        }).start();
+      });
+    },
+    [fadeValue, currentScreen],
+  );
 
   useEffect(() => {
     if (currentScreen === 'welcome') {
       const timer = setTimeout(() => {
-      navigateTo('login');
-    }, 3000);
+        navigateTo('login');
+      }, 3000);
 
-    return () => clearTimeout(timer);
+      return () => clearTimeout(timer);
     }
-  }, [currentScreen,navigateTo]);
+  }, [currentScreen, navigateTo]);
 
+  const handleLogout = useCallback(async () => {
+    try {
+      await AsyncStorage.removeItem('userToken');
+      navigateTo('login');
+    } catch (err) {
+      console.log('Error logging out: ', err);
+    }
+  }, [navigateTo]);
 
   const renderScreen = () => {
     switch (currentScreen) {
       case 'welcome':
         return <WelcomeScreen />;
       case 'login':
-        return <LoginScreen 
-        onNavigateRegister={() => navigateTo('register')}
-        onNavigateHome={() => navigateTo('home')}
-         />;
+        return (
+          <LoginScreen
+            onNavigateRegister={() => navigateTo('register')}
+            onNavigateHome={() => navigateTo('home')}
+          />
+        );
       case 'register':
         return <RegistrationScreen onNavigate={() => navigateTo('login')} />;
       case 'home':
-        return <HomeScreen />;
+        return (
+          <HomeScreen
+            onNavigateProfile={() => navigateTo('profile')}
+            onNavigateHome={() => navigateTo('home')}
+            onNavigateInsights={() => navigateTo('insights')}
+            onNavigateSettings={() => navigateTo('home')}
+          />
+        );
+      case 'profile':
+        return (
+          <UserProfileScreen
+            onNavigateProfile={() => navigateTo('profile')}
+            onNavigateHome={() => navigateTo('home')}
+            onNavigateInsights={() => navigateTo('insights')}
+            onNavigateSettings={() => navigateTo('home')}
+            onLogout={handleLogout}
+          />
+        );
       default:
         return <WelcomeScreen />;
     }
@@ -67,9 +108,9 @@ const App = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: '#D5F3F3' 
+  container: {
+    flex: 1,
+    backgroundColor: '#D5F3F3',
   },
 });
 

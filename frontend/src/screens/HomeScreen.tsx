@@ -17,7 +17,12 @@ import GradientBackground from '../components/GradientBackground';
 import NavigationBar from '../components/NavigationBar';
 import apiClient from '../api/client';
 
-const HomeScreen = () => {
+const HomeScreen = ({
+  onNavigateHome,
+  onNavigateInsights,
+  onNavigateProfile,
+  onNavigateSettings,
+}) => {
   const [streak, setStreak] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -141,7 +146,12 @@ const HomeScreen = () => {
         </ScrollView>
       </SafeAreaView>
 
-      <NavigationBar />
+      <NavigationBar
+        onNavigateHome={onNavigateHome}
+        onNavigateProfile={onNavigateProfile}
+        onNavigateInsights={onNavigateInsights}
+        onNavigateSettings={onNavigateSettings}
+      />
     </View>
   );
 };

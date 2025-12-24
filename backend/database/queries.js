@@ -86,7 +86,7 @@ async function updateUserProfile(userId, updateFields) {
 }
 
 async function showUserProfile(userId) {
-    const query = 'SELECT id, username, email FROM user_profile WHERE id = $1';
+    const query = 'SELECT id, username, email, current_streak, longest_streak FROM user_profile WHERE id = $1';
     const values = [userId];
 
     try {
