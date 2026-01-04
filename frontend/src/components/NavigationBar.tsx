@@ -51,7 +51,7 @@ const NavigationBar = ({
           </View>
         </TouchableOpacity>
       </View>
-      <NavItem icon="settings" onPress={onNavigateSettings} />
+      <NavItem icon="notifications" onPress={onNavigateSettings} />
       <NavItem icon="person" onPress={onNavigateProfile} />
     </View>
   );

@@ -1,5 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Animated, View, StyleSheet } from 'react-native';
+import {
+  Animated,
+  View,
+  StyleSheet,
+  NativeAppEventEmitter,
+} from 'react-native';
 import WelcomeScreen from './src/screens/WelcomeScreen';
 import RegistrationScreen from './src/screens/RegistrationScreen';
 import LoginScreen from './src/screens/LoginScreen';
@@ -43,14 +48,27 @@ const App = () => {
 
   useEffect(() => {
     if (currentScreen === 'welcome') {
-      const timer = setTimeout(() => {
-        navigateTo('login');
-      }, 3000);
+      const checkAuthAndNavigate = async () => {
+        try {
+          await new Promise(resolve => setTimeout(resolve, 3000));
 
-      return () => clearTimeout(timer);
+          const token = await AsyncStorage.getItem('userToken');
+
+          if (token) {
+            navigateTo('home');
+          } else {
+            navigateTo('login');
+          }
+        } catch (err) {
+          navigateTo('login');
+          console.log('Error: ', err)
+        }
+      };
+
+      checkAuthAndNavigate();
     }
   }, [currentScreen, navigateTo]);
-
+  
   const handleLogout = useCallback(async () => {
     try {
       await AsyncStorage.removeItem('userToken');
