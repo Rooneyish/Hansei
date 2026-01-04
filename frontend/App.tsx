@@ -10,11 +10,18 @@ import RegistrationScreen from './src/screens/RegistrationScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import UserProfileScreen from './src/screens/UserProfileScreen';
+import EditProfileScreen from './src/screens/EditProfileScreen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const App = () => {
   const [currentScreen, setCurrentScreen] = useState<
-    'welcome' | 'login' | 'register' | 'home' | 'profile' | 'insights'
+    | 'welcome'
+    | 'login'
+    | 'register'
+    | 'home'
+    | 'profile'
+    | 'insights'
+    | 'editProfile'
   >('welcome');
 
   const fadeValue = useRef(new Animated.Value(1)).current;
@@ -27,7 +34,8 @@ const App = () => {
         | 'register'
         | 'home'
         | 'profile'
-        | 'insights',
+        | 'insights'
+        | 'editProfile',
     ) => {
       if (screenName === currentScreen) return;
       Animated.timing(fadeValue, {
@@ -61,14 +69,14 @@ const App = () => {
           }
         } catch (err) {
           navigateTo('login');
-          console.log('Error: ', err)
+          console.log('Error: ', err);
         }
       };
 
       checkAuthAndNavigate();
     }
   }, [currentScreen, navigateTo]);
-  
+
   const handleLogout = useCallback(async () => {
     try {
       await AsyncStorage.removeItem('userToken');
@@ -107,7 +115,19 @@ const App = () => {
             onNavigateHome={() => navigateTo('home')}
             onNavigateInsights={() => navigateTo('insights')}
             onNavigateSettings={() => navigateTo('home')}
+            onNavigateEditProfile={() => navigateTo('editProfile')}
             onLogout={handleLogout}
+          />
+        );
+      case 'editProfile':
+        return (
+          <EditProfileScreen
+            onBack={() => navigateTo('profile')}
+            onUpdateSuccess={() => navigateTo('profile')}
+            onNavigateProfile={() => navigateTo('profile')}
+            onNavigateHome={() => navigateTo('home')}
+            onNavigateInsights={() => navigateTo('insights')}
+            onNavigateSettings={() => navigateTo('home')}
           />
         );
       default:

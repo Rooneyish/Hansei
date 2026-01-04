@@ -19,6 +19,7 @@ const UserProfileScreen = ({
   onNavigateInsights,
   onNavigateSettings,
   onLogout,
+  onNavigateEditProfile,
 }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -81,7 +82,7 @@ const UserProfileScreen = ({
 
           {/* INTERACTIVE OPTIONS */}
           <View style={styles.optionsContainer}>
-            <ProfileOption icon="edit" title="Edit Profile" onPress={() => {}} />
+            <ProfileOption icon="edit" title="Edit Profile" onPress={onNavigateEditProfile} />
             <ProfileOption icon="notifications" title="Notifications" />
             <ProfileOption icon="security" title="Security" />
             <ProfileOption
