@@ -7,6 +7,10 @@ from sklearn.model_selection import train_test_split
 # Get the project root directory relative to this file
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+SELECTED_CLASSES = [
+    "admiration", "approval", "gratitude", "joy", "amusement", "optimism",
+    "anger", "annoyance", "sadness", "confusion", "surprise", "disgust"
+]
 
 def clean_text(text):
     text = str(text).lower()
@@ -27,6 +31,7 @@ def get_processed_data():
 
     df = pd.concat([df_1, df_2, df_3])
 
+    preferred_emotions 
     # Aggregation logic (Consensus ~58k rows)
     emotion_columns = df.columns[9:]
     grouped_df = df.groupby(['id', 'text'])[emotion_columns].sum().reset_index()
