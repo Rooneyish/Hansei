@@ -1,54 +1,16 @@
-import torch
+from transformers import RobertaModel
 import torch.nn as nn
 
-class TransformerBlock(nn.Module):
-    def __init__(self, embed_dim, num_heads=12, ff_dim=3072, dropout=0.1):
-        super().__init__()
-        self.attention = nn.MultiheadAttention(embed_dim, num_heads, batch_first=True)
-        self.norm1 = nn.LayerNorm(embed_dim)
-        self.ffn = nn.Sequential(
-            nn.Linear(embed_dim, ff_dim),
-            nn.GELU(),
-            nn.Linear(ff_dim, embed_dim)
-        )
-        self.norm2 = nn.LayerNorm(embed_dim)
-        self.dropout = nn.Dropout(dropout)
-
-    def forward(self, x, padding_mask=None):
-        attn_out, _ = self.attention(x, x, x, key_padding_mask=padding_mask)
-        x = self.norm1(x + self.dropout(attn_out))
-        ffn_out = self.ffn(x)
-        x = self.norm2(x + self.dropout(ffn_out))
-        return x
-
 class GoEmotionTransformer(nn.Module):
-    def __init__(self, vocab_size=50265, num_labels=7, max_seq_len=512, embed_dim=768):
+    def __init__(self, num_labels=6):
         super().__init__()
-        self.embed_dim = embed_dim
-        self.token_embeddings = nn.Embedding(vocab_size, self.embed_dim)
-        self.pos_embeddings = nn.Embedding(max_seq_len, self.embed_dim)
-        self.norm = nn.LayerNorm(self.embed_dim)
-        
-        self.layers = nn.ModuleList([
-            TransformerBlock(embed_dim=self.embed_dim) for _ in range(12)
-        ])
-        
-        self.pooler = nn.Linear(self.embed_dim, self.embed_dim)
-        self.classifier = nn.Linear(self.embed_dim, num_labels)
+        self.encoder = RobertaModel.from_pretrained("roberta-base")
+        self.classifier = nn.Linear(self.encoder.config.hidden_size, num_labels)
 
-    def forward(self, input_ids, padding_mask=None):
-        batch_size, seq_len = input_ids.shape
-        positions = torch.arange(seq_len, device=input_ids.device).expand(batch_size, seq_len)
-        
-        x = self.token_embeddings(input_ids) + self.pos_embeddings(positions)
-        x = self.norm(x)
-        
-        key_padding_mask = None
-        if padding_mask is not None:
-            key_padding_mask = (padding_mask == 0)
-
-        for layer in self.layers:
-            x = layer(x, padding_mask=key_padding_mask)
-            
-        pooled_output = torch.tanh(self.pooler(x[:, 0, :]))
-        return self.classifier(pooled_output)
+    def forward(self, input_ids, attention_mask):
+        outputs = self.encoder(
+            input_ids=input_ids,
+            attention_mask=attention_mask
+        )
+        pooled = outputs.last_hidden_state[:, 0, :]
+        return self.classifier(pooled)

@@ -7,6 +7,7 @@ from sklearn.model_selection import train_test_split
 # Get the project root directory relative to this file
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+
 def clean_text(text):
     text = str(text).lower()
     text = ct.fix(text)
@@ -36,8 +37,11 @@ def get_processed_data():
     master_df = grouped_df.drop(columns=['id'])
     master_df['text'] = master_df['text'].apply(clean_text)
 
-    X = master_df['text']
-    y = master_df.iloc[:, 1:].values 
+    master_emotions_df = master_df[master_df['neutral']==0].copy()
+    master_emotions_df = master_emotions_df.drop(columns=['neutral'])
+
+    X = master_emotions_df['text']
+    y = master_emotions_df.iloc[:, 1:].values 
 
     X_train, X_temp, y_train, y_temp = train_test_split(X, y, test_size=0.3, random_state=42)
     X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, random_state=42)

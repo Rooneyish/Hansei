@@ -12,7 +12,7 @@ if PROJECT_ROOT not in sys.path:
 
 from src.models.transformer import GoEmotionTransformer
 
-EKMAN_LABELS = ["anger", "disgust", "fear", "joy", "sadness", "surprise", "neutral"]
+EKMAN_LABELS = ["anger", "disgust", "fear", "joy", "sadness", "surprise"]
 
 def predict_emotion(text, model_path="best_goemotion_model.pt"):
     DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -23,10 +23,6 @@ def predict_emotion(text, model_path="best_goemotion_model.pt"):
     tokenizer = RobertaTokenizer.from_pretrained("roberta-base")
     
     model = GoEmotionTransformer(
-        vocab_size=tokenizer.vocab_size,
-        num_labels=7,
-        max_seq_len=MAX_LEN, 
-        embed_dim=EMBED_DIM
     ).to(DEVICE)
     
     # Locate Weights
@@ -54,7 +50,7 @@ def predict_emotion(text, model_path="best_goemotion_model.pt"):
     mask = encoding['attention_mask'].to(DEVICE)
     
     with torch.no_grad():
-        logits = model(ids, padding_mask=mask)
+        logits = model(ids, attention_mask=mask)
         probs = torch.sigmoid(logits).cpu().numpy()[0]
     
     return probs
