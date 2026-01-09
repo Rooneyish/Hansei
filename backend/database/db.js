@@ -1,22 +1,32 @@
-const {Pool} = require('pg');
+const { Pool } = require('pg');
+require('dotenv').config();
 
-module.exports = new Pool({
-    host : 'localhost',
-    user : 'rooneyish',
-    database  : 'users',
-    password : '@m0r050<>',
-    port : 5432
+// Create a connection pool using environment variables
+const pool = new Pool({
+    user: process.env.DB_USER,
+    host: process.env.DB_HOST,
+    database: process.env.DB_NAME,
+    password: process.env.DB_PASSWORD,
+    port: process.env.DB_PORT,
 });
 
-async function testConnection() {
-    const pool = module.exports;
-    try {
-        const client = await pool.connect();
-        console.log('Database connection successful');
-        client.release();
-    } catch (err) {
-        console.error('Database connection error', err.stack);
-    }
-}
+// Event listener for successful connection
+pool.on('connect', () => {
+    console.log('Hansei Database: Connected to PostgreSQL successfully.');
+});
 
-testConnection();
+// Event listener for connection errors
+pool.on('error', (err) => {
+    console.error('Hansei Database: Unexpected error on idle client', err);
+    process.exit(-1);
+});
+
+// Export a helper function to run queries
+module.exports = {
+    /**
+     * Executes a query against the database
+     * @param {string} text - SQL Query
+     * @param {Array} params - Values to replace $1, $2, etc.
+     */
+    query: (text, params) => pool.query(text, params),
+};
