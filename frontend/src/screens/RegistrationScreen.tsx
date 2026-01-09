@@ -7,172 +7,135 @@ import {
   TouchableOpacity,
   Alert,
   Image,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import GradientBackground from '../components/GradientBackground';
 import apiClient from '../api/client';
 
-const RegistrationScreen = ({ onNavigate }: { onNavigate: () => void }) => {
+const RegistrationScreen = ({ onNavigate }) => {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfrimPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
-  const handleRegister = async() => {
-    if (!username || !email || !password || !confirmPassword) {
-      Alert.alert('Error', 'Please fill in all fields');
+  const handleRegister = async () => {
+    if (!username || !email || !password || confirmPassword !== password) {
+      Alert.alert('Error', 'Check all fields.');
       return;
     }
-
-    if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
-      return;
-    }
-
     try {
-      const response = await apiClient.post('/auth/register', {
-        username,
-        email,
-        password,
-      });
-
-      Alert.alert('Success', "Registration Complete. Please Login");
+      await apiClient.post('/auth/register', { username, email, password });
+      Alert.alert('Success', 'Welcome to Hansei. Please Login.');
       onNavigate();
-
     } catch (err) {
-      const errorMsg = err.response?.data?.error || 'Something went wrong';
-      Alert.alert('Registration Error', errorMsg);
+      Alert.alert('Error', err.response?.data?.error || 'Registration failed');
     }
   };
 
   return (
     <View style={styles.container}>
       <GradientBackground />
-      <View style={styles.headerRow}>
-        <Text style={styles.header}>Welcome to Hansei!</Text>
-        <Image
-          source={require('../assets/logo_dark.png')}
-          style={styles.smallLogo}
-        />
-      </View>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.content}
+      >
+        <View style={styles.headerSection}>
+          <Image
+            source={require('../assets/logo_dark.png')}
+            style={styles.logo}
+          />
+          <Text style={styles.header}>Join Hansei</Text>
+          <Text style={styles.subHeader}>
+            Begin your self-reflection journey
+          </Text>
+        </View>
 
-      <View style={styles.form}>
-        <TextInput
-          style={styles.input}
-          placeholder="Username"
-          placeholderTextColor="#555"
-          value={username}
-          onChangeText={setUsername}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          keyboardType="email-address"
-          placeholderTextColor="#555"
-          value={email}
-          onChangeText={setEmail}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Password"
-          secureTextEntry
-          placeholderTextColor="#555"
-          value={password}
-          onChangeText={setPassword}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Confirm Password"
-          secureTextEntry
-          placeholderTextColor="#555"
-          value={confirmPassword}
-          onChangeText={setConfrimPassword}
-        />
-      </View>
+        <View style={styles.form}>
+          <TextInput
+            style={styles.pillInput}
+            placeholder="Username"
+            placeholderTextColor="rgba(0, 67, 70, 0.4)"
+            value={username}
+            onChangeText={setUsername}
+          />
+          <TextInput
+            style={styles.pillInput}
+            placeholder="Email"
+            keyboardType="email-address"
+            placeholderTextColor="rgba(0, 67, 70, 0.4)"
+            value={email}
+            onChangeText={setEmail}
+          />
+          <TextInput
+            style={styles.pillInput}
+            placeholder="Password"
+            secureTextEntry
+            placeholderTextColor="rgba(0, 67, 70, 0.4)"
+            value={password}
+            onChangeText={setPassword}
+          />
+          <TextInput
+            style={styles.pillInput}
+            placeholder="Confirm Password"
+            secureTextEntry
+            placeholderTextColor="rgba(0, 67, 70, 0.4)"
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+          />
+        </View>
 
-      <View style={styles.buttonRow}>
-        <TouchableOpacity
-          style={[styles.button, styles.registerButtonMain]}
-          onPress={handleRegister}
-        >
-          <Text style={styles.buttonText}>Register</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.button, styles.loginButton]}
-          onPress={onNavigate}
-        >
-          <Text style={[styles.buttonText, styles.loginButtonText]}>Login</Text>
-        </TouchableOpacity>
-      </View>
+        <View style={styles.buttonRow}>
+          <TouchableOpacity
+            style={styles.primaryButton}
+            onPress={handleRegister}
+          >
+            <Text style={styles.btnTextMain}>Register</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.secondaryButton} onPress={onNavigate}>
+            <Text style={styles.btnTextSub}>
+              Already have an account? Login
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 30,
-    justifyContent: 'center',
-    backgroundColor: '#D5F3F3',
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
-  },
-  header: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#172a3a',
-    marginRight: 10,
-  },
-  smallLogo: {
-    width: 80,
-    height: 80,
-    resizeMode: 'contain',
-  },
-  input: {
-    borderBottomWidth: 2,
-    borderColor: '#172a3a',
-    paddingVertical: 10,
-    marginBottom: 25,
-    fontSize: 16, 
-    color: '#172a3a',
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 20,
-  },
-  button: {
-    backgroundColor: '#004346',
-    paddingVertical: 12,
-    paddingHorizontal: 30,
+  container: { flex: 1 },
+  content: { flex: 1, padding: 30, justifyContent: 'center' },
+  headerSection: { alignItems: 'center', marginBottom: 40 },
+  logo: { width: 90, height: 90, marginBottom: 10, resizeMode: 'contain' },
+  header: { fontSize: 32, fontWeight: '800', color: '#004346' },
+  subHeader: { fontSize: 16, color: '#004346', opacity: 0.6, marginTop: 5 },
+  form: { gap: 12 },
+  pillInput: {
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
     borderRadius: 25,
-    minWidth: 120,
+    paddingHorizontal: 25,
+    paddingVertical: 16,
+    fontSize: 15,
+    color: '#004346',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
+  },
+  buttonRow: { marginTop: 30, gap: 15 },
+  primaryButton: {
+    backgroundColor: '#004346',
+    borderRadius: 30,
+    paddingVertical: 18,
     alignItems: 'center',
-    elevation: 3,
   },
-  registerButtonMain: {
-    flex: 2,
-    marginRight: 10,
-    backgroundColor: '#172a3a',
+  secondaryButton: { paddingVertical: 18, alignItems: 'center' },
+  btnTextMain: { color: '#fff', fontWeight: 'bold', fontSize: 18 },
+  btnTextSub: {
+    color: '#004346',
+    fontWeight: '600',
+    fontSize: 14,
+    opacity: 0.8,
   },
-  loginButton: {
-    backgroundColor: '#D5F3F3',
-    borderWidth: 2,
-    borderColor: '#172a3a',
-  },
-  buttonText: {
-    color: '#ffffff',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  loginButtonText: {
-    color: '#172a3a',
-  },
-  form: {},
 });
 
 export default RegistrationScreen;

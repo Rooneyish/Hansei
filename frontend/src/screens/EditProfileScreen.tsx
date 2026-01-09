@@ -8,6 +8,8 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
@@ -41,9 +43,7 @@ const EditProfileScreen = ({
       setLoading(true);
       try {
         const response = await apiClient.get('/profile');
-
         const userData = response.data.user;
-
         setFormData(prev => ({
           ...prev,
           username: userData.username || '',
@@ -65,6 +65,7 @@ const EditProfileScreen = ({
       const profileData = {
         username: formData.username,
         email: formData.email,
+        bio: formData.bio,
       };
 
       await apiClient.patch('/profile', profileData);
@@ -84,15 +85,7 @@ const EditProfileScreen = ({
       }
 
       Alert.alert('Success', 'Profile updated successfully!');
-
-      setFormData(prev => ({
-        ...prev,
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: '',
-      }));
       setShowPasswordFields(false);
-
       if (onUpdateSuccess) onUpdateSuccess();
     } catch (err) {
       const errorMsg = err.response?.data?.error || 'Something went wrong';
@@ -101,6 +94,7 @@ const EditProfileScreen = ({
       setSaving(false);
     }
   };
+
   if (loading) {
     return (
       <View style={styles.centered}>
@@ -113,112 +107,125 @@ const EditProfileScreen = ({
     <View style={styles.container}>
       <GradientBackground />
       <SafeAreaView style={{ flex: 1 }}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={onBack}>
-            <MaterialIcons name="arrow-back" size={28} color="#004346" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Edit Profile</Text>
-          <View style={{ width: 28 }} />
-        </View>
-
-        <ScrollView
-          contentContainerStyle={styles.form}
-          showsVerticalScrollIndicator={false}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
         >
-          {/* Profile Details */}
-          <Text style={styles.sectionTitle}>General Info</Text>
+          <View style={styles.header}>
+            <TouchableOpacity onPress={onBack} style={styles.backBtn}>
+              <MaterialIcons name="chevron-left" size={32} color="#004346" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Edit Profile</Text>
+            <View style={{ width: 40 }} />
+          </View>
 
-          <Text style={styles.label}>Username</Text>
-          <TextInput
-            style={styles.input}
-            value={formData.username}
-            onChangeText={text => setFormData({ ...formData, username: text })}
-          />
-
-          <Text style={styles.label}>Email</Text>
-          <TextInput
-            style={styles.input}
-            value={formData.email}
-            keyboardType="email-address"
-            onChangeText={text => setFormData({ ...formData, email: text })}
-          />
-
-          <Text style={styles.label}>Bio</Text>
-          <TextInput
-            style={[styles.input, styles.textArea]}
-            value={formData.bio}
-            multiline
-            numberOfLines={4}
-            onChangeText={text => setFormData({ ...formData, bio: text })}
-          />
-
-          <View style={styles.divider} />
-
-          {/* Password Section Toggle */}
-          <TouchableOpacity
-            style={styles.passwordToggle}
-            onPress={() => setShowPasswordFields(!showPasswordFields)}
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
           >
-            <Text style={styles.sectionTitle}>Change Password</Text>
-            <MaterialIcons
-              name={
-                showPasswordFields ? 'keyboard-arrow-up' : 'keyboard-arrow-down'
-              }
-              size={24}
-              color="#004346"
-            />
-          </TouchableOpacity>
+            <View style={styles.glassCard}>
+              <Text style={styles.sectionTitle}>General Information</Text>
 
-          {showPasswordFields && (
-            <View style={styles.passwordSection}>
-              <Text style={styles.label}>Current Password</Text>
-              <TextInput
-                style={styles.input}
-                secureTextEntry
-                placeholder="Required to change password"
-                value={formData.currentPassword}
-                onChangeText={text =>
-                  setFormData({ ...formData, currentPassword: text })
-                }
-              />
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Username</Text>
+                <TextInput
+                  style={styles.pillInput}
+                  value={formData.username}
+                  placeholderTextColor="rgba(0, 67, 70, 0.4)"
+                  onChangeText={text =>
+                    setFormData({ ...formData, username: text })
+                  }
+                />
+              </View>
 
-              <Text style={styles.label}>New Password</Text>
-              <TextInput
-                style={styles.input}
-                secureTextEntry
-                value={formData.newPassword}
-                onChangeText={text =>
-                  setFormData({ ...formData, newPassword: text })
-                }
-              />
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Email Address</Text>
+                <TextInput
+                  style={styles.pillInput}
+                  value={formData.email}
+                  keyboardType="email-address"
+                  placeholderTextColor="rgba(0, 67, 70, 0.4)"
+                  onChangeText={text =>
+                    setFormData({ ...formData, email: text })
+                  }
+                />
+              </View>
 
-              <Text style={styles.label}>Confirm New Password</Text>
-              <TextInput
-                style={styles.input}
-                secureTextEntry
-                value={formData.confirmPassword}
-                onChangeText={text =>
-                  setFormData({ ...formData, confirmPassword: text })
-                }
-              />
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Short Bio</Text>
+                <TextInput
+                  style={[styles.pillInput, styles.textArea]}
+                  value={formData.bio}
+                  placeholder="Tell us about your wellness journey..."
+                  placeholderTextColor="rgba(0, 67, 70, 0.4)"
+                  multiline
+                  onChangeText={text => setFormData({ ...formData, bio: text })}
+                />
+              </View>
+
+              <View style={styles.divider} />
+
+              <TouchableOpacity
+                style={styles.passwordToggle}
+                onPress={() => setShowPasswordFields(!showPasswordFields)}
+              >
+                <Text style={styles.sectionTitle}>Security Settings</Text>
+                <MaterialIcons
+                  name={showPasswordFields ? 'expand-less' : 'expand-more'}
+                  size={28}
+                  color="#004346"
+                />
+              </TouchableOpacity>
+
+              {showPasswordFields && (
+                <View style={styles.passwordFields}>
+                  <TextInput
+                    style={styles.pillInput}
+                    secureTextEntry
+                    placeholder="Current Password"
+                    placeholderTextColor="rgba(0, 67, 70, 0.4)"
+                    value={formData.currentPassword}
+                    onChangeText={text =>
+                      setFormData({ ...formData, currentPassword: text })
+                    }
+                  />
+                  <TextInput
+                    style={styles.pillInput}
+                    secureTextEntry
+                    placeholder="New Password"
+                    placeholderTextColor="rgba(0, 67, 70, 0.4)"
+                    value={formData.newPassword}
+                    onChangeText={text =>
+                      setFormData({ ...formData, newPassword: text })
+                    }
+                  />
+                  <TextInput
+                    style={styles.pillInput}
+                    secureTextEntry
+                    placeholder="Confirm New Password"
+                    placeholderTextColor="rgba(0, 67, 70, 0.4)"
+                    value={formData.confirmPassword}
+                    onChangeText={text =>
+                      setFormData({ ...formData, confirmPassword: text })
+                    }
+                  />
+                </View>
+              )}
+
+              <TouchableOpacity
+                style={styles.saveBtn}
+                onPress={handleSave}
+                disabled={saving}
+              >
+                {saving ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.saveBtnText}>Update Profile</Text>
+                )}
+              </TouchableOpacity>
             </View>
-          )}
-
-          <TouchableOpacity
-            style={styles.saveButton}
-            onPress={handleSave}
-            disabled={saving}
-          >
-            {saving ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.saveButtonText}>Save All Changes</Text>
-            )}
-          </TouchableOpacity>
-
-          {/* Extra padding for bottom scroll */}
-          <View style={{ height: 40 }} />
-        </ScrollView>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
 
       <NavigationBar
@@ -233,43 +240,64 @@ const EditProfileScreen = ({
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#D5F3F3',
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 5,
+    paddingHorizontal: 15,
+    paddingVertical: 10,
   },
-  headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#004346' },
-  form: { padding: 20 },
+  backBtn: {
+    padding: 5,
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    borderRadius: 20,
+  },
+  headerTitle: { fontSize: 22, fontWeight: '800', color: '#004346' },
+  scrollContent: { padding: 20, paddingBottom: 150 },
+  glassCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.45)',
+    borderRadius: 40,
+    padding: 25,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.6)',
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '800',
     color: '#004346',
-    marginTop: 5,
+    marginBottom: 20,
   },
+  inputGroup: { marginBottom: 18 },
   label: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '800',
     color: '#004346',
-    marginBottom: 6,
-    marginTop: 5,
-    opacity: 0.7,
+    opacity: 0.5,
+    marginBottom: 8,
+    marginLeft: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
-  input: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 15,
+  pillInput: {
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderRadius: 25,
+    paddingHorizontal: 20,
+    paddingVertical: 15,
     fontSize: 16,
     color: '#004346',
     borderWidth: 1,
-    borderColor: 'rgba(0,67,70,0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.5)',
   },
-  textArea: { minHeight: 80, textAlignVertical: 'top' },
+  textArea: { minHeight: 100, textAlignVertical: 'top', borderRadius: 20 },
   divider: {
     height: 1,
-    backgroundColor: 'rgba(0,67,70,0.1)',
+    backgroundColor: 'rgba(0, 67, 70, 0.08)',
     marginVertical: 25,
   },
   passwordToggle: {
@@ -277,21 +305,19 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  passwordSection: {
-    marginTop: 5,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    padding: 15,
-    borderRadius: 15,
-  },
-  saveButton: {
+  passwordFields: { marginTop: 15, gap: 12 },
+  saveBtn: {
     backgroundColor: '#004346',
-    borderRadius: 25,
-    paddingVertical: 15,
+    borderRadius: 30,
+    paddingVertical: 18,
     alignItems: 'center',
-    marginTop: 15,
-    elevation: 4,
+    marginTop: 30,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 5,
   },
-  saveButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+  saveBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 17 },
 });
 
 export default EditProfileScreen;

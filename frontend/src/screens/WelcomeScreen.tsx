@@ -1,30 +1,38 @@
 import React, { useEffect, useRef } from 'react';
-import { Text, Animated, StyleSheet, Easing, View } from 'react-native';
+import { Text, Animated, StyleSheet, Easing, View} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import GradientBackground from '../components/GradientBackground';
 
 const WelcomeScreen = () => {
   const rotateAnim = useRef(new Animated.Value(0)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current; 
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.9)).current;
 
   useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 1000,
-      useNativeDriver: true,
-    }).start();
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 1500,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        friction: 4,
+        useNativeDriver: true,
+      }),
+    ]).start();
 
     const startRotation = () => {
       rotateAnim.setValue(0);
       Animated.timing(rotateAnim, {
         toValue: 1,
-        duration: 2000,
+        duration: 10000, 
         easing: Easing.linear,
         useNativeDriver: true,
       }).start(() => startRotation());
     };
     startRotation();
-  }, [fadeAnim, rotateAnim]);
+  }, [fadeAnim, rotateAnim, scaleAnim]);
 
   const spin = rotateAnim.interpolate({
     inputRange: [0, 1],
@@ -36,13 +44,27 @@ const WelcomeScreen = () => {
       <GradientBackground />
 
       <SafeAreaView style={styles.safeArea}>
-        <Animated.View style={[styles.innerContent, { opacity: fadeAnim }]}>
-          <Animated.Image
-            source={require('../assets/logo_dark.png')} 
-            style={[styles.logo, { transform: [{ rotate: spin }] }]}
-          />
+        <Animated.View
+          style={[
+            styles.innerContent,
+            { opacity: fadeAnim, transform: [{ scale: scaleAnim }] },
+          ]}
+        >
+          <View style={styles.logoWrapper}>
+            <Animated.Image
+              source={require('../assets/logo_dark.png')}
+              style={[styles.logo, { transform: [{ rotate: spin }] }]}
+            />
+          </View>
+
           <Text style={styles.title}>Hansei</Text>
-          <Text style={styles.subtitle}>Loading...</Text>
+
+          <View style={styles.loaderContainer}>
+            <Text style={styles.subtitle}>Aligning your thoughts</Text>
+            <View style={styles.dotContainer}>
+              <Animated.View style={styles.loadingBar} />
+            </View>
+          </View>
         </Animated.View>
       </SafeAreaView>
     </View>
@@ -52,7 +74,7 @@ const WelcomeScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#004346', 
+    backgroundColor: '#D5F3F3',
   },
   safeArea: {
     flex: 1,
@@ -62,28 +84,49 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  logoWrapper: {
+    shadowColor: '#004346',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    marginBottom: 30,
+  },
   logo: {
-    width: 180, 
-    height: 180,
-    marginBottom: 20,
+    width: 160,
+    height: 160,
     resizeMode: 'contain',
   },
   title: {
-    fontSize: 40,
-    fontWeight: 'bold',
-    color: '#172a3a', 
-    letterSpacing: 1,
-    textShadowColor: 'rgba(0, 0, 0, 0.15)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 8,
+    fontSize: 48,
+    fontWeight: '800',
+    color: '#004346',
+    letterSpacing: -1,
+  },
+  loaderContainer: {
+    marginTop: 40,
+    alignItems: 'center',
   },
   subtitle: {
-    marginTop: 10,
-    color: '#508991', 
-    letterSpacing: 4,
-    fontSize: 14,
+    color: '#004346',
+    opacity: 0.5,
+    letterSpacing: 2,
+    fontSize: 12,
     fontWeight: '700',
-    textTransform: 'uppercase', 
+    textTransform: 'uppercase',
+    marginBottom: 15,
+  },
+  dotContainer: {
+    width: 100,
+    height: 3,
+    backgroundColor: 'rgba(0, 67, 70, 0.1)',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  loadingBar: {
+    width: '40%',
+    height: '100%',
+    backgroundColor: '#004346',
+    borderRadius: 2,
   },
 });
 

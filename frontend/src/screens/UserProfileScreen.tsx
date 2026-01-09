@@ -3,9 +3,9 @@ import {
   View,
   Text,
   StyleSheet,
-  Image,
   TouchableOpacity,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
@@ -25,76 +25,57 @@ const UserProfileScreen = ({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchProfileData = async () => {
-      try {
-        const response = await apiClient.get('/profile');
-        setUser(response.data.user);
-      } catch (err) {
-        console.error('Error fetching profile: ', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchProfileData();
+    apiClient
+      .get('/profile')
+      .then(res => setUser(res.data.user))
+      .finally(() => setLoading(false));
   }, []);
 
-  if (loading) {
+  if (loading)
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color="#004346" />
       </View>
     );
-  }
 
   return (
     <View style={styles.container}>
       <GradientBackground />
-
       <SafeAreaView style={styles.safeArea}>
-        {/* HEADER SECTION */}
-        <View style={styles.headerRow}>
-          <View style={{ width: 30 }} />
-          <Image
-            source={require('../assets/logo_dark.png')}
-            style={styles.smallLogo}
-          />
-          <View style={{ width: 30 }} />
-        </View>
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <Text style={styles.pageTitle}>Your Reflection Space</Text>
 
-        <View style={styles.content}>
-          <Text style={styles.pageTitle}>Profile</Text>
-
-          {/* USER INFO CARD */}
-          <View style={styles.profileCard}>
-            <View style={styles.avatarContainer}>
-              <MaterialIcons name="account-circle" size={100} color="#004346" />
+          <View style={styles.glassCard}>
+            <View style={styles.avatarCircle}>
+              <MaterialIcons name="person" size={80} color="#fff" />
             </View>
-
-            <Text style={styles.username}>{user?.username || 'Guest'}</Text>
-            <Text style={styles.email}>{user?.email || 'No email provided'}</Text>
+            <Text style={styles.username}>{user?.username || 'Seeker'}</Text>
+            <Text style={styles.email}>{user?.email}</Text>
 
             <View style={styles.streakBadge}>
               <Text style={styles.streakText}>
-                🔥 Longest Streak: <Text style={styles.bold}>{user?.longest_streak || 0}</Text>
+                🔥 Best Streak: {user?.longest_streak || 0}
               </Text>
             </View>
           </View>
 
-          {/* INTERACTIVE OPTIONS */}
-          <View style={styles.optionsContainer}>
-            <ProfileOption icon="edit" title="Edit Profile" onPress={onNavigateEditProfile} />
-            <ProfileOption icon="notifications" title="Notifications" />
-            <ProfileOption icon="security" title="Security" />
-            <ProfileOption
-              icon="logout"
+          <View style={styles.menuContainer}>
+            <ProfileLink
+              icon="edit"
+              title="Edit Profile"
+              onPress={onNavigateEditProfile}
+            />
+            <ProfileLink icon="history" title="Reflection History" />
+            <ProfileLink icon="verified-user" title="Privacy & Security" />
+            <ProfileLink
+              icon="power-settings-new"
               title="Log Out"
-              color="#d9534f"
+              isDanger
               onPress={onLogout}
             />
           </View>
-        </View>
+        </ScrollView>
       </SafeAreaView>
-
       <NavigationBar
         onNavigateHome={onNavigateHome}
         onNavigateProfile={onNavigateProfile}
@@ -105,85 +86,74 @@ const UserProfileScreen = ({
   );
 };
 
-
-const ProfileOption = ({ icon, title, color = '#004346', onPress }) => (
-  <TouchableOpacity style={styles.optionItem} onPress={onPress}>
-    <View style={styles.optionLeft}>
-      <MaterialIcons name={icon} size={24} color={color} />
-      <Text style={[styles.optionText, { color }]}>{title}</Text>
+const ProfileLink = ({ icon, title, isDanger, onPress }) => (
+  <TouchableOpacity style={styles.linkRow} onPress={onPress}>
+    <View style={styles.linkLeft}>
+      <MaterialIcons
+        name={icon}
+        size={24}
+        color={isDanger ? '#d9534f' : '#004346'}
+      />
+      <Text style={[styles.linkText, isDanger && { color: '#d9534f' }]}>
+        {title}
+      </Text>
     </View>
     <MaterialIcons name="chevron-right" size={24} color="#ccc" />
   </TouchableOpacity>
 );
 
-
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  center: { 
-    flex: 1, 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    backgroundColor: '#D5F3F3' 
-  },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   safeArea: { flex: 1 },
-  content: { paddingHorizontal: 20 },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-  },
-  smallLogo: {
-    width: 50,
-    height: 50,
-    resizeMode: 'contain',
-  },
+  scrollContent: { padding: 25, paddingBottom: 150 },
   pageTitle: {
     fontSize: 24,
     fontWeight: '800',
     color: '#004346',
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 30,
   },
-  profileCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
-    borderRadius: 30,
-    padding: 25,
+  glassCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    borderRadius: 40,
+    padding: 30,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: 'rgba(255, 255, 255, 0.5)',
+  },
+  avatarCircle: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#004346',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 20,
   },
-  avatarContainer: { marginBottom: 10 },
-  username: { fontSize: 22, fontWeight: '800', color: '#004346' },
-  email: { fontSize: 14, color: '#555', marginBottom: 15 },
+  username: { fontSize: 26, fontWeight: '800', color: '#004346' },
+  email: { fontSize: 16, color: '#004346', opacity: 0.6, marginBottom: 20 },
   streakBadge: {
-    backgroundColor: 'rgba(0, 67, 70, 0.1)',
-    paddingVertical: 8,
+    backgroundColor: '#004346',
     paddingHorizontal: 20,
-    borderRadius: 20,
-    marginTop: 5,
+    paddingVertical: 10,
+    borderRadius: 25,
   },
-  streakText: {
-    color: '#004346',
-    fontSize: 16,
+  streakText: { color: '#fff', fontWeight: 'bold' },
+  menuContainer: {
+    marginTop: 30,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 30,
+    padding: 10,
   },
-  bold: { fontWeight: 'bold' },
-  optionsContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    borderRadius: 20,
-    paddingVertical: 5,
-  },
-  optionItem: {
+  linkRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 15,
-    paddingHorizontal: 20,
+    padding: 20,
   },
-  optionLeft: { flexDirection: 'row', alignItems: 'center' },
-  optionText: { fontSize: 16, fontWeight: '600', marginLeft: 15 },
+  linkLeft: { flexDirection: 'row', alignItems: 'center', gap: 15 },
+  linkText: { fontSize: 16, fontWeight: '600', color: '#004346' },
 });
 
 export default UserProfileScreen;

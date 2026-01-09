@@ -21,14 +21,14 @@ const NavigationBar = ({
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
-          toValue: 1.15,
-          duration: 1500,
+          toValue: 1.1,
+          duration: 2000,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
         Animated.timing(pulseAnim, {
           toValue: 1,
-          duration: 1500,
+          duration: 2000,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
@@ -37,75 +37,95 @@ const NavigationBar = ({
   }, [pulseAnim]);
 
   return (
-    <View style={styles.navBar}>
-      <NavItem icon="home" onPress={onNavigateHome} />
-      <NavItem icon="bar-chart" onPress={onNavigateInsights} />
-      <View style={styles.aiButtonContainer}>
-        <Animated.View style={[{ transform: [{ scale: pulseAnim }] }]} />
-        <TouchableOpacity activeOpacity={0.8} style={styles.aiButton}>
-          <View style={styles.aiButtonInner}>
-            <Image
-              source={require('../assets/logo_light.png')}
-              style={styles.smallLogo}
-            />
-          </View>
+    <View style={styles.navContainer}>
+      <View style={styles.navBar}>
+        <TouchableOpacity style={styles.navItem} onPress={onNavigateHome}>
+          <MaterialIcons name="home-filled" size={28} color="#004346" />
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.navItem} onPress={onNavigateInsights}>
+          <MaterialIcons
+            name="bubble-chart"
+            size={28}
+            color="rgba(0, 67, 70, 0.5)"
+          />
+        </TouchableOpacity>
+
+        <View style={styles.aiButtonWrapper}>
+          <Animated.View
+            style={[
+              styles.aiButtonCircle,
+              { transform: [{ scale: pulseAnim }] },
+            ]}
+          >
+            <TouchableOpacity activeOpacity={0.9} style={styles.aiButtonInner}>
+              <Image
+                source={require('../assets/logo_light.png')}
+                style={styles.aiLogo}
+              />
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
+
+        <TouchableOpacity style={styles.navItem} onPress={onNavigateSettings}>
+          <MaterialIcons
+            name="notifications-none"
+            size={28}
+            color="rgba(0, 67, 70, 0.5)"
+          />
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.navItem} onPress={onNavigateProfile}>
+          <MaterialIcons name="person-outline" size={28} color="#004346" />
         </TouchableOpacity>
       </View>
-      <NavItem icon="notifications" onPress={onNavigateSettings} />
-      <NavItem icon="person" onPress={onNavigateProfile} />
     </View>
   );
 };
 
-const NavItem = ({ icon, onPress }) => (
-  <TouchableOpacity style={styles.navItem} onPress={onPress}>
-    <MaterialIcons name={icon} size={32} color="rgba(23, 43, 58, 0.82)" />
-  </TouchableOpacity>
-);
-
 const styles = StyleSheet.create({
+  navContainer: {
+    position: 'absolute',
+    bottom: 30,
+    left: 20,
+    right: 20,
+  },
   navBar: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    height: 75,
     borderRadius: 40,
-    height: 50,
     alignItems: 'center',
     justifyContent: 'space-around',
     paddingHorizontal: 10,
-    position: 'absolute',
-    bottom: 15,
-    left: 10,
-    right: 10,
     borderWidth: 1,
-    borderColor: 'rgba(23, 43, 58, 0.5)',
+    borderColor: 'rgba(255, 255, 255, 0.5)',
+    shadowColor: '#004346',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 10,
   },
-  navItem: {
-    alignItems: 'center',
+  navItem: { flex: 1, alignItems: 'center' },
+  aiButtonWrapper: { marginTop: -60 },
+  aiButtonCircle: {
+    width: 75,
+    height: 75,
+    borderRadius: 40,
+    backgroundColor: 'rgba(213, 243, 243, 0.8)',
     justifyContent: 'center',
-    flex: 1,
-  },
-  aiButtonContainer: {
     alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: -45,
-  },
-  aiButton: {
-    width: 60,
-    height: 60,
-    padding: 3,
   },
   aiButtonInner: {
-    flex: 1,
-    borderRadius: 32,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     backgroundColor: '#004346',
     justifyContent: 'center',
     alignItems: 'center',
+    elevation: 5,
   },
-  smallLogo: {
-    width: 50,
-    height: 50,
-    resizeMode: 'contain',
-  },
+  aiLogo: { width: 40, height: 40, resizeMode: 'contain' },
 });
 
 export default NavigationBar;

@@ -4,15 +4,12 @@ import {
   Text,
   StyleSheet,
   Image,
-  Pressable,
-  Animated,
   TextInput,
   ScrollView,
-  ActivityIndicator,
+  TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-import LinearGradient from 'react-native-linear-gradient';
 import GradientBackground from '../components/GradientBackground';
 import NavigationBar from '../components/NavigationBar';
 import apiClient from '../api/client';
@@ -30,15 +27,9 @@ const HomeScreen = ({
     try {
       setLoading(true);
       const response = await apiClient.post('/profile/check-in');
-
-      if (response.data && response.data.streak !== undefined) {
-        setStreak(response.data.streak);
-        console.log('Server Message:', response.data.message);
-      }
+      setStreak(response.data.streak ?? 0);
     } catch (err) {
-      console.log('Error:', err);
-      const fallback = await apiClient.get('/profile/streak');
-      setStreak(fallback.data.streak || 0);
+      setStreak(0);
     } finally {
       setLoading(false);
     }
@@ -51,13 +42,9 @@ const HomeScreen = ({
   return (
     <View style={styles.container}>
       <GradientBackground />
-
       <SafeAreaView style={styles.safeArea}>
-        {/* Fixed Header */}
         <View style={styles.headerRow}>
-          <Pressable hitSlop={20}>
-            <MaterialIcons name="menu" size={30} color="#004346" />
-          </Pressable>
+          <MaterialIcons name="sort" size={30} color="#004346" />
           <Image
             source={require('../assets/logo_dark.png')}
             style={styles.smallLogo}
@@ -69,83 +56,46 @@ const HomeScreen = ({
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
-          <View style={styles.statusBar}>
-            {/* Daily Streaks Bar*/}
-            <LinearGradient
-              colors={[
-                'rgba(213,243,243,0.5)',
-                'rgba(213,242,223,0.5)',
-                'rgba(213,233,242,0.5)',
-              ]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.statusBarInner}
-            >
-              <View>
-                <Text style={styles.statusText}>Daily Streaks</Text>
-                {loading ? (
-                  <ActivityIndicator size="small" color="#004346" />
-                ) : (
-                  <Text style={styles.statusValue}>{streak ?? 0}</Text>
-                )}
-              </View>
-              <Text style={styles.emoji}>🔥</Text>
-            </LinearGradient>
-
-            {/* Mood Bar */}
-            <LinearGradient
-              colors={[
-                'rgba(213,243,243,0.5)',
-                'rgba(213,242,223,0.5)',
-                'rgba(213,233,242,0.5)',
-              ]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.statusBarInner}
-            >
-              <View>
-                <Text style={styles.statusText}>Mood</Text>
-                <Text style={[styles.statusValue, { fontSize: 20 }]}>
-                  Happy
-                </Text>
-              </View>
-              <Text style={styles.emoji}>😊</Text>
-            </LinearGradient>
+          <View style={styles.statusRow}>
+            <View style={styles.statusBubble}>
+              <Text style={styles.statusLabel}>STREAK</Text>
+              <Text style={styles.statusValue}>{streak ?? 0} 🔥</Text>
+            </View>
+            <View style={styles.statusBubble}>
+              <Text style={styles.statusLabel}>MOOD</Text>
+              <Text style={styles.statusValue}>Happy 😊</Text>
+            </View>
           </View>
 
-          {/* Journal Entry Box */}
-          <View style={styles.journalBox}>
-            <Text style={styles.journalPrompt}>
-              Greetings! How are you feeling?
-            </Text>
-
+          <View style={styles.journalCard}>
+            <Text style={styles.journalTitle}>How are you feeling today?</Text>
             <TextInput
               style={styles.journalInput}
-              placeholder="Write your thoughts here..."
-              placeholderTextColor="#6b9fa5"
+              placeholder="Start your daily reflection..."
+              placeholderTextColor="rgba(0, 67, 70, 0.4)"
               multiline
               textAlignVertical="top"
             />
           </View>
 
-          {/* Activity Space */}
-          <View style={styles.activitiesContainer}>
-            <Text style={styles.activitiesTitle}>Activities</Text>
-
-            <View style={styles.activitiesGrid}>
+          <View style={styles.activitySection}>
+            <Text style={styles.sectionTitle}>Daily Practice</Text>
+            <View style={styles.grid}>
               {[
-                { name: 'Music', emoji: '🎵' },
-                { name: 'CBT Exercises', emoji: '🧠' },
-                { name: 'Quests', emoji: '🎯' },
-                { name: 'Meditation', emoji: '🧘‍♂️' },
-              ].map((activity, idx) => (
-                <ActivityCard key={idx} activity={activity} />
+                { name: 'Music', icon: 'headset' },
+                { name: 'CBT Lab', icon: 'psychology' },
+                { name: 'Quests', icon: 'stars' },
+                { name: 'Zen Room', icon: 'self-improvement' },
+              ].map((item, idx) => (
+                <TouchableOpacity key={idx} style={styles.activityCard}>
+                  <MaterialIcons name={item.icon} size={32} color="#004346" />
+                  <Text style={styles.activityLabel}>{item.name}</Text>
+                </TouchableOpacity>
               ))}
             </View>
           </View>
         </ScrollView>
       </SafeAreaView>
-
       <NavigationBar
         onNavigateHome={onNavigateHome}
         onNavigateProfile={onNavigateProfile}
@@ -156,152 +106,94 @@ const HomeScreen = ({
   );
 };
 
-const ActivityCard = ({ activity }) => {
-  const scale = new Animated.Value(1);
-  const onPressIn = () =>
-    Animated.spring(scale, { toValue: 0.95, useNativeDriver: true }).start();
-  const onPressOut = () =>
-    Animated.spring(scale, { toValue: 1, useNativeDriver: true }).start();
-
-  return (
-    <Pressable
-      onPressIn={onPressIn}
-      onPressOut={onPressOut}
-      style={styles.gridItem}
-    >
-      <Animated.View style={{ transform: [{ scale }] }}>
-        <LinearGradient
-          colors={['rgba(255, 255, 255, 0.4)', 'rgba(255, 255, 255, 0.4)']}
-          style={styles.activityCard}
-        >
-          <Text style={styles.activityEmoji}>{activity.emoji}</Text>
-          <Text style={styles.activityText}>{activity.name}</Text>
-        </LinearGradient>
-      </Animated.View>
-    </Pressable>
-  );
-};
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  safeArea: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 10,
-  },
+  container: { flex: 1 },
+  safeArea: { flex: 1 },
+  scrollContent: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 140 },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingVertical: 15,
   },
-  smallLogo: {
-    width: 50,
-    height: 50,
-    resizeMode: 'contain',
-  },
-  statusBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 15,
-  },
-  statusBarInner: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 10,
+  smallLogo: { width: 50, height: 50, resizeMode: 'contain' },
+  statusRow: { flexDirection: 'row', gap: 15 },
+  statusBubble: {
     flex: 1,
-    height: 80,
-    borderRadius: 20,
+    height: 100,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 30,
+    padding: 15,
+    justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(23, 43, 58, 0.5)',
-    paddingHorizontal: 15,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
   },
-  statusText: {
+  statusLabel: {
+    fontSize: 10,
+    fontWeight: '800',
     color: '#004346',
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'uppercase',
+    opacity: 0.5,
     letterSpacing: 1,
-    opacity: 0.6,
-    marginBottom: 2,
   },
   statusValue: {
-    color: '#004346',
-    fontSize: 32,
-    fontWeight: '800',
-    lineHeight: 38,
-    letterSpacing: -0.5,
-    includeFontPadding: false,
-  },
-  emoji: {
-    fontSize: 28,
-  },
-  journalBox: {
-    marginTop: 20,
-    width: '100%',
-    backgroundColor: '#ffffff',
-    borderRadius: 20,
-    padding: 15,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 3,
-  },
-  journalPrompt: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#004346',
-    marginBottom: 10,
-  },
-  journalInput: {
-    minHeight: 160,
-    fontSize: 15,
-    color: '#004346',
-    borderRadius: 12,
-    padding: 12,
-    backgroundColor: '#f7fbfc',
-  },
-  activitiesContainer: {
-    marginTop: 25,
-    width: '100%',
-  },
-  activitiesTitle: {
     fontSize: 22,
     fontWeight: '800',
     color: '#004346',
-    marginBottom: 15,
+    marginTop: 4,
   },
-  activitiesGrid: {
+  journalCard: {
+    marginTop: 25,
+    backgroundColor: 'rgba(255, 255, 255, 0.45)',
+    borderRadius: 35,
+    padding: 25,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.6)',
+  },
+  journalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#004346',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  journalInput: {
+    minHeight: 200,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderRadius: 20,
+    padding: 20,
+    fontSize: 16,
+    color: '#004346',
+    lineHeight: 24,
+  },
+  activitySection: { marginTop: 30 },
+  sectionTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#004346',
+    marginBottom: 20,
+  },
+  grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-  },
-  gridItem: {
-    width: '48%',
-    marginBottom: 15,
+    gap: 15,
   },
   activityCard: {
-    height: 100,
+    width: '47%',
+    height: 110,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 30,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: 'rgba(255, 255, 255, 0.5)',
   },
-  activityEmoji: {
-    fontSize: 28,
-    marginBottom: 4,
-  },
-  activityText: {
-    fontSize: 14,
+  activityLabel: {
+    marginTop: 8,
     fontWeight: '700',
     color: '#004346',
+    fontSize: 14,
   },
 });
 

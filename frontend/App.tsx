@@ -1,10 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import {
-  Animated,
-  View,
-  StyleSheet,
-  NativeAppEventEmitter,
-} from 'react-native';
+import { Animated, View, StyleSheet, Easing } from 'react-native';
 import WelcomeScreen from './src/screens/WelcomeScreen';
 import RegistrationScreen from './src/screens/RegistrationScreen';
 import LoginScreen from './src/screens/LoginScreen';
@@ -25,6 +20,7 @@ const App = () => {
   >('welcome');
 
   const fadeValue = useRef(new Animated.Value(1)).current;
+  const scaleValue = useRef(new Animated.Value(1)).current;
 
   const navigateTo = useCallback(
     (
@@ -38,28 +34,47 @@ const App = () => {
         | 'editProfile',
     ) => {
       if (screenName === currentScreen) return;
-      Animated.timing(fadeValue, {
-        toValue: 0,
-        duration: 500,
-        useNativeDriver: true,
-      }).start(() => {
-        setCurrentScreen(screenName);
+
+      Animated.parallel([
         Animated.timing(fadeValue, {
-          toValue: 1,
-          duration: 500,
+          toValue: 0,
+          duration: 350,
+          easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
-        }).start();
+        }),
+        Animated.timing(scaleValue, {
+          toValue: 0.96, 
+          duration: 350,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setCurrentScreen(screenName);
+
+        Animated.parallel([
+          Animated.timing(fadeValue, {
+            toValue: 1,
+            duration: 450,
+            easing: Easing.inOut(Easing.quad),
+            useNativeDriver: true,
+          }),
+          Animated.timing(scaleValue, {
+            toValue: 1, 
+            duration: 450,
+            easing: Easing.out(Easing.back(1)), 
+            useNativeDriver: true,
+          }),
+        ]).start();
       });
     },
-    [fadeValue, currentScreen],
+    [fadeValue, scaleValue, currentScreen],
   );
 
   useEffect(() => {
     if (currentScreen === 'welcome') {
       const checkAuthAndNavigate = async () => {
         try {
-          await new Promise(resolve => setTimeout(resolve, 3000));
-
+          await new Promise(resolve => setTimeout(resolve, 3500));
           const token = await AsyncStorage.getItem('userToken');
 
           if (token) {
@@ -137,8 +152,13 @@ const App = () => {
 
   return (
     <View style={styles.container}>
-      {}
-      <Animated.View style={{ flex: 1, opacity: fadeValue }}>
+      <Animated.View
+        style={{
+          flex: 1,
+          opacity: fadeValue,
+          transform: [{ scale: scaleValue }],
+        }}
+      >
         {renderScreen()}
       </Animated.View>
     </View>
@@ -148,7 +168,7 @@ const App = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#D5F3F3',
+    backgroundColor: '#D5F3F3', 
   },
 });
 
