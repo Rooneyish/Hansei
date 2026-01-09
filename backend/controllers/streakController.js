@@ -8,7 +8,7 @@ async function checkInUser(req, res) {
         console.log(result)
         res.status(200).json({
             message: result.message,
-            streak: result.current_streak,
+            streak: result.streak_count,
             longest_streak: result.longest_streak,
             userId: userId
         });
@@ -22,10 +22,10 @@ async function getStreakCount(req, res) {
     const userId = req.user.id;
     try {
         const result = await queries.getStreak(userId);
-        const currentStreak = result ? result.current_streak : 0;
+        const streak_count = result ? result.streak_count : 0;
 
         res.status(200).json({
-            streak: currentStreak
+            streak: streak_count
         });
     } catch (err) {
         console.error('Error in getStreakCount controller', err);

@@ -4,6 +4,7 @@ class UserModel{
         this.username = username;
         this.email = email;
         this.password = password;
+        this.age = this.age;
     }
 
     getId(){
@@ -22,6 +23,10 @@ class UserModel{
         return this.password;
     }
 
+    getAge(){
+        return this.age;
+    }
+
     setId(id){
         this.id = id;
     }
@@ -36,6 +41,10 @@ class UserModel{
 
     setPassword(password){
         this.password = password;
+    }
+
+    setAge(age){
+        this.age = age;
     }
 }
 

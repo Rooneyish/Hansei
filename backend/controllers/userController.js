@@ -13,10 +13,10 @@ async function showUserProfile(req, res) {
 
         res.status(200).json({
             user: {
-                id: user.id,
+                id: user.user_id,
                 username: user.username,
                 email: user.email,
-                current_streak: user.current_streak,
+                current_streak: user.streak_count,
                 longest_streak: user.longest_streak
             }
         });
@@ -48,14 +48,14 @@ async function updateProfile(req, res) {
 
     if (username){
         const usernameExists = await queries.findUserByUsername(username);
-        if (usernameExists && usernameExists.id !== parseInt(userId)) {
+        if (usernameExists && usernameExists.user_id !== parseInt(userId)) {
             return res.status(409).json({ error: 'Username already exists' });
         }
         updateField.username = username;
     } 
     if (email) {
         const emailExists = await queries.findUserByEmail(email);
-        if (emailExists && emailExists.id !== parseInt(userId)) {
+        if (emailExists && emailExists.user_id !== parseInt(userId)) {
             return res.status(409).json({ error: 'Email already exists' });
         }
         updateField.email = email;
@@ -76,7 +76,7 @@ async function updateProfile(req, res) {
         res.status(200).json({
             message: `User profile updated successfully`,
             user: {
-                id: updatedUser.id,
+                id: updatedUser.user_id,
                 username: updatedUser.username,
                 email: updatedUser.email
             }

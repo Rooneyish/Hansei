@@ -1,7 +1,6 @@
 const queries = require('../database/queries');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const LoginModel = require('../models/loginModel');
 require('dotenv').config();
 
 async function loginUser(req, res) {
@@ -12,34 +11,28 @@ async function loginUser(req, res) {
     }
 
     try {
-
-        const loginData = new LoginModel(username, password);
-
-        if (!loginData.username || !loginData.password) {
-            return res.status(400).json({ error: 'Invalid username or password' });
-        }
-
         const user = await queries.findUserByUsername(username);
+        console.log("User from DB:", user); 
         if (!user) {
             return res.status(401).json({ error: 'Invalid username or password' });
         }
 
-        const isMatch = await bcrypt.compare(password, user.password);
+        const isMatch = await bcrypt.compare(password, user.password_hash);
         if (!isMatch) {
             return res.status(401).json({ error: 'Invalid username or password' });
         }
 
-        const expiresTime = '1d';
+        const expiresTime = '7d';
 
         const accessToken = jwt.sign(
-            {id: user.id, username: user.username, email: user.email},
+            {id: user.user_id, username: user.username, email: user.email},
             process.env.ACCESS_TOKEN_SECRET, { expiresIn: expiresTime }
         );
 
         res.status(200).json({
             message: `User ${user.username} logged in successfully`,
             user: {
-                id: user.id,
+                id: user.user_id,
                 username: user.username,
                 email: user.email,
                 accessToken,
