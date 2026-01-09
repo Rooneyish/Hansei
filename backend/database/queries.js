@@ -1,36 +1,39 @@
 const pool = require('./db');
 UserModel = require('../models/userModel');
 
-async function registerUser(UserModel) {
-    const insertQuery = `
-        INSERT INTO user_profile 
-        (username, email, password) 
-        VALUES ($1, $2, $3)
-        RETURNING id, username, email
-    `;
-
-    const values = [
-        UserModel.username,
-        UserModel.email,
-        UserModel.password,
-    ];
-
+async function registerUser(userModel) {
+    // We use a Transaction to ensure both tables are updated
+    const client = await pool.query('BEGIN');
     try {
-        const result = await pool.query(insertQuery, values);
-        if (result.rowCount > 0) {
-            console.log(`User ${UserModel.username} registered successfully.`);
-            return result.rows[0];
-        }else {
-            return null;
-        }
+        // 1. Insert into users table
+        const userInsert = `
+            INSERT INTO users (username, email, password_hash) 
+            VALUES ($1, $2, $3)
+            RETURNING user_id, username, email
+        `;
+        const userValues = [userModel.username, userModel.email, userModel.password];
+        const userRes = await pool.query(userInsert, userValues);
+        const newUser = userRes.rows[0];
+
+        // 2. Initialize progress in user_progress table (FR1 & FR6)
+        const progressInsert = `
+            INSERT INTO user_progress (user_id, streak_count, longest_streak) 
+            VALUES ($1, 0, 0)
+        `;
+        await pool.query(progressInsert, [newUser.user_id]);
+
+        await pool.query('COMMIT');
+        console.log(`User ${newUser.username} registered successfully.`);
+        return newUser;
     } catch (error) {
+        await pool.query('ROLLBACK');
         console.error('Error during user registration:', error.stack);
         throw error;
     }
 }
 
 async function findUserByUsername(username) {
-    const query = 'SELECT * FROM user_profile WHERE username = $1';
+    const query = 'SELECT * FROM users WHERE username = $1';
     const values = [username];
 
     try {
@@ -43,11 +46,9 @@ async function findUserByUsername(username) {
 }
 
 async function findUserByEmail(email) {
-    const query = 'SELECT * FROM user_profile WHERE email = $1';
-    const values = [email];
-
+    const query = 'SELECT * FROM users WHERE email = $1';
     try {
-        const result = await pool.query(query, values);
+        const result = await pool.query(query, [email]);
         return result.rows[0];
     } catch (err) {
         console.error('Error finding user by email', err.stack);
@@ -66,7 +67,7 @@ async function updateUserProfile(userId, updateFields) {
     const values = [userId, ...fieldKeys.map(key => updateFields[key])];
 
     const query = `
-        UPDATE user_profile 
+        UPDATE users 
         SET ${setClauses} 
         WHERE id = $1
         RETURNING *
@@ -86,14 +87,14 @@ async function updateUserProfile(userId, updateFields) {
 }
 
 async function showUserProfile(userId) {
-    const query = 'SELECT id, username, email, current_streak, longest_streak FROM user_profile WHERE id = $1';
-    const values = [userId];
-
+    const query = `
+        SELECT u.user_id, u.username, u.email, p.streak_count, p.longest_streak 
+        FROM users u
+        JOIN user_progress p ON u.user_id = p.user_id
+        WHERE u.user_id = $1
+    `;
     try {
-        const result = await pool.query(query, values);
-        if (result.rowCount === 0) {
-            return null;
-        }
+        const result = await pool.query(query, [userId]);
         return result.rows[0];
     } catch (err) {
         console.error('Error retrieving user profile', err.stack);
@@ -102,7 +103,7 @@ async function showUserProfile(userId) {
 }
 
 async function getPasswordByUserId(userId) {
-    const query = 'SELECT password FROM user_profile WHERE id = $1';
+    const query = 'SELECT password FROM users WHERE id = $1';
     const values = [userId];
 
     try {
@@ -119,7 +120,7 @@ async function getPasswordByUserId(userId) {
 
 async function passwordReset(userId, newPassword) {
     const query = `
-        UPDATE user_profile 
+        UPDATE users 
         SET password = $2 
         WHERE id = $1
         RETURNING *
@@ -136,7 +137,7 @@ async function passwordReset(userId, newPassword) {
 }
 
 async function deleteUser(userId) {
-    const query = 'DELETE FROM user_profile WHERE id = $1';
+    const query = 'DELETE FROM users WHERE id = $1';
     const values = [userId];
 
     try {
@@ -149,7 +150,7 @@ async function deleteUser(userId) {
 }
 
 async function getStreak(userId){
-    const fetchQuery='SELECT current_streak FROM user_profile WHERE id = $1';
+    const fetchQuery='SELECT streak_count FROM user_progress WHERE id = $1';
     const values = [userId]
     
     try{
@@ -165,35 +166,26 @@ async function getStreak(userId){
 
 async function checkInUser(userId) {
     const today = new Date();
-
-    const todayString = today.toLocaleDateString('en-CA');
+    const todayString = today.toLocaleDateString('en-CA'); // YYYY-MM-DD
     
+    // Fetch from user_progress table
     const fetchQuery = `
-        SELECT current_streak, last_active_date, longest_streak
-        FROM user_profile 
-        WHERE id = $1
+        SELECT streak_count, last_activity, longest_streak
+        FROM user_progress 
+        WHERE user_id = $1
     `;
 
-    const values = [userId];
-
-    try{
-        const result = await pool.query(fetchQuery, values);
+    try {
+        const result = await pool.query(fetchQuery, [userId]);
         const userData = result.rows[0];
 
-        if (!userData) {
-            throw new Error('User not found');
-        }
+        if (!userData) throw new Error('User progress not found');
 
-        const {current_streak, last_active_date, longest_streak} = userData;
-        
-        let newStreak = current_streak;
-        let newLongestStreak = longest_streak;
-        let newLastCheckIn = todayString;
-
-        const lastActiveStr = last_active_date ? last_active_date.toLocaleDateString('en-CA'): null;
+        let { streak_count, last_activity, longest_streak } = userData;
+        const lastActiveStr = last_activity ? new Date(last_activity).toLocaleDateString('en-CA') : null;
 
         if (lastActiveStr === todayString) {
-            return { current_streak: newStreak, longest_streak: newLongestStreak, message: 'Already checked in today' };
+            return { streak_count, longest_streak, message: 'Already checked in today' };
         }
 
         const yesterday = new Date(today);
@@ -201,30 +193,27 @@ async function checkInUser(userId) {
         const yesterdayString = yesterday.toLocaleDateString('en-CA');
 
         if (lastActiveStr === yesterdayString) {
-            newStreak += 1;
+            streak_count += 1;
         } else {
-            newStreak = 1;
+            streak_count = 1;
         }
 
-        if (newStreak > newLongestStreak) {
-            newLongestStreak = newStreak;
-        }
+        if (streak_count > longest_streak) longest_streak = streak_count;
 
         const updateQuery = `
-            UPDATE user_profile 
-            SET current_streak = $2, last_active_date = $3 , longest_streak = $4
-            WHERE id = $1
-            RETURNING current_streak, longest_streak
+            UPDATE user_progress 
+            SET streak_count = $2, last_activity = $3, longest_streak = $4
+            WHERE user_id = $1
+            RETURNING streak_count, longest_streak
         `;
-        const updateValues = [userId, newStreak, newLastCheckIn, newLongestStreak];
-        const updateResult =  await pool.query(updateQuery, updateValues);
+        const updateRes = await pool.query(updateQuery, [userId, streak_count, todayString, longest_streak]);
         
         return { 
-            current_streak: updateResult.rows[0].current_streak, 
-            longest_streak: updateResult.rows[0].longest_streak,
-            message:newStreak > 1 ? 'Streak continued!' : 'Streak started/reset!'
+            streak_count: updateRes.rows[0].streak_count, 
+            longest_streak: updateRes.rows[0].longest_streak,
+            message: streak_count > 1 ? 'Streak continued!' : 'Streak started!'
         };
-    }catch(err){
+    } catch(err) {
         console.error('Error during check-in', err.stack);
         throw err;
     }
