@@ -10,8 +10,6 @@ import {
   Alert,
   ActivityIndicator,
   Keyboard,
-  PermissionsAndroid,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
@@ -26,141 +24,99 @@ const HomeScreen = ({
   onNavigateProfile,
   onNavigateSettings,
 }) => {
-  const [streak, setStreak] = useState(null);
+  const [streak, setStreak] = useState(0);
+  const [mood, setMood] = useState('Reflective ✨');
   const [journalText, setJournalText] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [isScanning, setIsScanning] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const requestCameraPermission = async () => {
-    if (Platform.OS === 'android') {
-      try {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.CAMERA,
-          {
-            title: 'Hansei Camera Permission',
-            message: 'Hansei needs access to your camera to scan your journal.',
-            buttonNeutral: 'Ask Me Later',
-            buttonNegative: 'Cancel',
-            buttonPositive: 'OK',
-          },
-        );
-        return granted === PermissionsAndroid.RESULTS.GRANTED;
-      } catch (err) {
-        console.warn(err);
-        return false;
-      }
-    }
-    return true; 
-  };
-
-  const fetchStreak = useCallback(async () => {
+  const fetchUserData = useCallback(async () => {
     try {
-      const response = await apiClient.post('/profile/check-in');
-      setStreak(response.data.streak ?? 0);
+      const response = await apiClient.get('/profile');
+      const data = response.data.user;
+      setStreak(data.streak_count || 0);
+      setMood(data.current_mood || 'Reflective ✨');
     } catch (err) {
-      setStreak(0);
+      console.log('Error fetching profile:', err);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchStreak();
-  }, [fetchStreak]);
+    fetchUserData();
+  }, [fetchUserData]);
 
   const processImageForOCR = async result => {
-    if (result.didCancel) return;
-    if (result.errorCode) {
-      Alert.alert('Error', result.errorMessage || 'Action failed');
-      return;
-    }
-
-    const base64Image = result.assets?.[0]?.base64;
-    if (!base64Image) return;
+    if (result.didCancel || !result.assets) return;
+    const base64Image = result.assets[0].base64;
 
     setIsScanning(true);
     try {
       const response = await apiClient.post('/journal/scan', {
         imageBase64: base64Image,
       });
-
       if (response.data.text) {
         setJournalText(prev =>
           prev ? `${prev}\n${response.data.text}` : response.data.text,
         );
-        Alert.alert('Success', 'Text extracted successfully!');
+        Alert.alert('Success', 'Text extracted!');
       }
     } catch (err) {
-      Alert.alert(
-        'AI Error',
-        'Could not extract text. Ensure the image is clear.',
-      );
+      Alert.alert('Scan Error', 'Could not extract text.');
     } finally {
       setIsScanning(false);
     }
   };
 
   const handleScanPress = () => {
-    const options = {
-      mediaType: 'photo',
-      includeBase64: true,
-      quality: 0.5,
-      maxWidth: 1500,
-      maxHeight: 1500,
-    };
-
-    Alert.alert('Scan Reflection', 'Choose a source', [
+    const options = { mediaType: 'photo', includeBase64: true, quality: 0.5 };
+    Alert.alert('Scan Source', 'Choose how to scan your journal:', [
       {
         text: 'Camera',
-        onPress: async () => {
-          const hasPermission = await requestCameraPermission();
-          if (hasPermission) {
-            const result = await launchCamera(options);
-            processImageForOCR(result);
-          } else {
-            Alert.alert(
-              'Permission Denied',
-              'Camera access is required to scan text.',
-            );
-          }
-        },
+        onPress: async () => processImageForOCR(await launchCamera(options)),
       },
       {
-        text: 'Library',
-        onPress: async () => {
-          const result = await launchImageLibrary(options);
-          processImageForOCR(result);
-        },
+        text: 'Gallery',
+        onPress: async () =>
+          processImageForOCR(await launchImageLibrary(options)),
       },
-      {
-        text: 'Cancel',
-        style: 'cancel',
-      },
+      { text: 'Cancel', style: 'cancel' },
     ]);
   };
 
+  // HomeScreen.tsx
+
   const handleSubmitJournal = async () => {
     if (!journalText.trim()) {
-      Alert.alert('Empty', 'Please write something before submitting.');
+      Alert.alert('Empty Entry', 'Please write or scan some thoughts first.');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      await apiClient.post('/journal/submit', { content: journalText });
+      const response = await apiClient.post('/journal/submit', {
+        content: journalText,
+      });
 
-      const streakRes = await apiClient.post('/profile/check-in');
-      setStreak(streakRes.data.streak);
+      // Update Mood
+      if (response.data.mood) {
+        setMood(response.data.mood);
+      }
 
-      Alert.alert(
-        'Reflected',
-        'Your journal has been saved and your streak updated!.',
-      );
+      // --- ADDED THIS PART ---
+      // Update Streak
+      if (response.data.streak !== undefined) {
+        setStreak(response.data.streak);
+      }
+      // -----------------------
+
+      Alert.alert('Reflected', `Mood detected: ${response.data.mood}`);
       setJournalText('');
       Keyboard.dismiss();
     } catch (err) {
-      Alert.alert('Error', 'Failed to save your reflection.');
+      Alert.alert('Error', 'Failed to save reflection.');
     } finally {
       setIsSubmitting(false);
     }
@@ -186,28 +142,26 @@ const HomeScreen = ({
           <View style={styles.statusRow}>
             <View style={styles.statusBubble}>
               <Text style={styles.statusLabel}>STREAK</Text>
-              <Text style={styles.statusValue}>{streak ?? 0} 🔥</Text>
+              <Text style={styles.statusValue}>{streak} 🔥</Text>
             </View>
             <View style={styles.statusBubble}>
               <Text style={styles.statusLabel}>MOOD</Text>
-              <Text style={styles.statusValue}>Happy 😊</Text>
+              <Text style={styles.statusValue}>{mood}</Text>
             </View>
           </View>
 
           <View style={styles.journalCard}>
             <Text style={styles.journalTitle}>How are you feeling today?</Text>
-
             <View style={styles.inputContainer}>
               <TextInput
                 style={styles.journalInput}
                 placeholder="Start your daily reflection..."
                 placeholderTextColor="rgba(0, 67, 70, 0.4)"
                 multiline
-                textAlignVertical="top"
                 value={journalText}
                 onChangeText={setJournalText}
+                textAlignVertical="top"
               />
-
               <View style={styles.actionRow}>
                 <TouchableOpacity
                   style={styles.scanBtn}
@@ -231,7 +185,7 @@ const HomeScreen = ({
                 <TouchableOpacity
                   style={[
                     styles.submitBtn,
-                    !journalText.trim() && styles.disabledBtn,
+                    !journalText.trim() && { opacity: 0.5 },
                   ]}
                   onPress={handleSubmitJournal}
                   disabled={isSubmitting || !journalText.trim()}
@@ -305,7 +259,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   statusValue: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: '800',
     color: '#004346',
     marginTop: 4,
@@ -358,7 +312,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 15,
   },
-  disabledBtn: { opacity: 0.5 },
   submitBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
   activitySection: { marginTop: 30 },
   sectionTitle: {
