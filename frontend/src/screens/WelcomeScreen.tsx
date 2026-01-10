@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Text, Animated, StyleSheet, Easing, View} from 'react-native';
+import { Text, Animated, StyleSheet, Easing, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import GradientBackground from '../components/GradientBackground';
 
@@ -26,7 +26,7 @@ const WelcomeScreen = () => {
       rotateAnim.setValue(0);
       Animated.timing(rotateAnim, {
         toValue: 1,
-        duration: 10000, 
+        duration: 10000,
         easing: Easing.linear,
         useNativeDriver: true,
       }).start(() => startRotation());

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,9 +7,15 @@ import {
   TextInput,
   ScrollView,
   TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+  Keyboard,
+  PermissionsAndroid,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import GradientBackground from '../components/GradientBackground';
 import NavigationBar from '../components/NavigationBar';
 import apiClient from '../api/client';
@@ -21,23 +27,144 @@ const HomeScreen = ({
   onNavigateSettings,
 }) => {
   const [streak, setStreak] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [journalText, setJournalText] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isScanning, setIsScanning] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const fetchStreak = async () => {
+  const requestCameraPermission = async () => {
+    if (Platform.OS === 'android') {
+      try {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.CAMERA,
+          {
+            title: 'Hansei Camera Permission',
+            message: 'Hansei needs access to your camera to scan your journal.',
+            buttonNeutral: 'Ask Me Later',
+            buttonNegative: 'Cancel',
+            buttonPositive: 'OK',
+          },
+        );
+        return granted === PermissionsAndroid.RESULTS.GRANTED;
+      } catch (err) {
+        console.warn(err);
+        return false;
+      }
+    }
+    return true; 
+  };
+
+  const fetchStreak = useCallback(async () => {
     try {
-      setLoading(true);
       const response = await apiClient.post('/profile/check-in');
       setStreak(response.data.streak ?? 0);
     } catch (err) {
       setStreak(0);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchStreak();
-  }, []);
+  }, [fetchStreak]);
+
+  const processImageForOCR = async result => {
+    if (result.didCancel) return;
+    if (result.errorCode) {
+      Alert.alert('Error', result.errorMessage || 'Action failed');
+      return;
+    }
+
+    const base64Image = result.assets?.[0]?.base64;
+    if (!base64Image) return;
+
+    setIsScanning(true);
+    try {
+      const response = await apiClient.post('/journal/scan', {
+        imageBase64: base64Image,
+      });
+
+      if (response.data.text) {
+        setJournalText(prev =>
+          prev ? `${prev}\n${response.data.text}` : response.data.text,
+        );
+        Alert.alert('Success', 'Text extracted successfully!');
+      }
+    } catch (err) {
+      Alert.alert(
+        'AI Error',
+        'Could not extract text. Ensure the image is clear.',
+      );
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
+  const handleScanPress = () => {
+    const options = {
+      mediaType: 'photo',
+      includeBase64: true,
+      quality: 0.5,
+      maxWidth: 1500,
+      maxHeight: 1500,
+    };
+
+    Alert.alert('Scan Reflection', 'Choose a source', [
+      {
+        text: 'Camera',
+        onPress: async () => {
+          const hasPermission = await requestCameraPermission();
+          if (hasPermission) {
+            const result = await launchCamera(options);
+            processImageForOCR(result);
+          } else {
+            Alert.alert(
+              'Permission Denied',
+              'Camera access is required to scan text.',
+            );
+          }
+        },
+      },
+      {
+        text: 'Library',
+        onPress: async () => {
+          const result = await launchImageLibrary(options);
+          processImageForOCR(result);
+        },
+      },
+      {
+        text: 'Cancel',
+        style: 'cancel',
+      },
+    ]);
+  };
+
+  const handleSubmitJournal = async () => {
+    if (!journalText.trim()) {
+      Alert.alert('Empty', 'Please write something before submitting.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await apiClient.post('/journal/submit', { content: journalText });
+
+      const streakRes = await apiClient.post('/profile/check-in');
+      setStreak(streakRes.data.streak);
+
+      Alert.alert(
+        'Reflected',
+        'Your journal has been saved and your streak updated!.',
+      );
+      setJournalText('');
+      Keyboard.dismiss();
+    } catch (err) {
+      Alert.alert('Error', 'Failed to save your reflection.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -69,13 +196,54 @@ const HomeScreen = ({
 
           <View style={styles.journalCard}>
             <Text style={styles.journalTitle}>How are you feeling today?</Text>
-            <TextInput
-              style={styles.journalInput}
-              placeholder="Start your daily reflection..."
-              placeholderTextColor="rgba(0, 67, 70, 0.4)"
-              multiline
-              textAlignVertical="top"
-            />
+
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.journalInput}
+                placeholder="Start your daily reflection..."
+                placeholderTextColor="rgba(0, 67, 70, 0.4)"
+                multiline
+                textAlignVertical="top"
+                value={journalText}
+                onChangeText={setJournalText}
+              />
+
+              <View style={styles.actionRow}>
+                <TouchableOpacity
+                  style={styles.scanBtn}
+                  onPress={handleScanPress}
+                  disabled={isScanning}
+                >
+                  {isScanning ? (
+                    <ActivityIndicator size="small" color="#004346" />
+                  ) : (
+                    <>
+                      <MaterialIcons
+                        name="camera-alt"
+                        size={20}
+                        color="#004346"
+                      />
+                      <Text style={styles.actionBtnText}>Scan Text</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.submitBtn,
+                    !journalText.trim() && styles.disabledBtn,
+                  ]}
+                  onPress={handleSubmitJournal}
+                  disabled={isSubmitting || !journalText.trim()}
+                >
+                  {isSubmitting ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.submitBtnText}>Save Entry</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
 
           <View style={styles.activitySection}>
@@ -146,7 +314,7 @@ const styles = StyleSheet.create({
     marginTop: 25,
     backgroundColor: 'rgba(255, 255, 255, 0.45)',
     borderRadius: 35,
-    padding: 25,
+    padding: 20,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.6)',
   },
@@ -155,17 +323,43 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#004346',
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 15,
+  },
+  inputContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderRadius: 25,
+    overflow: 'hidden',
   },
   journalInput: {
-    minHeight: 200,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    borderRadius: 20,
+    minHeight: 180,
     padding: 20,
     fontSize: 16,
     color: '#004346',
     lineHeight: 24,
   },
+  actionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 10,
+    backgroundColor: 'rgba(0, 67, 70, 0.03)',
+  },
+  scanBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 6,
+  },
+  actionBtnText: { fontSize: 14, fontWeight: '700', color: '#004346' },
+  submitBtn: {
+    backgroundColor: '#004346',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 15,
+  },
+  disabledBtn: { opacity: 0.5 },
+  submitBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
   activitySection: { marginTop: 30 },
   sectionTitle: {
     fontSize: 22,

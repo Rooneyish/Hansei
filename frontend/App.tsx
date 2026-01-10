@@ -43,7 +43,7 @@ const App = () => {
           useNativeDriver: true,
         }),
         Animated.timing(scaleValue, {
-          toValue: 0.96, 
+          toValue: 0.96,
           duration: 350,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
@@ -59,9 +59,9 @@ const App = () => {
             useNativeDriver: true,
           }),
           Animated.timing(scaleValue, {
-            toValue: 1, 
+            toValue: 1,
             duration: 450,
-            easing: Easing.out(Easing.back(1)), 
+            easing: Easing.out(Easing.back(1)),
             useNativeDriver: true,
           }),
         ]).start();
@@ -168,7 +168,7 @@ const App = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#D5F3F3', 
+    backgroundColor: '#D5F3F3',
   },
 });
 

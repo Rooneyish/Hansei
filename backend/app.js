@@ -1,27 +1,28 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const db = require('./database/db')
-const authenticate = require('./middleware/authenticate');
+require("dotenv").config();
+const express = require("express");
+const cors = require("cors");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const HOST = '0.0.0.0'
+const HOST = "0.0.0.0";
 
-app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}))
-app.use(express.json());
+app.use(cors());
 
-app.get('/', authenticate,(req, res) => {
-  res.send('Hello, Welcome to the Hansei Project!');
+// IMPORTANT: Body parsers MUST come before routes
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ limit: "50mb", extended: true }));
+
+// Test route (no prefix)
+app.get("/test", (req, res) => {
+  res.send("Server is live!");
 });
 
-app.use('/api/auth', require('./routes/authRoutes'));
-app.use('/api', require('./routes/userRoutes'));
+// Authentication routes (Login/Register)
+app.use("/api/auth", require("./routes/authRoutes"));
 
-app.listen(PORT, HOST,async() => {
+// User routes (Profile/Streaks/Journal)
+app.use("/api", require("./routes/userRoutes"));
+
+app.listen(PORT, HOST, () => {
   console.log(`Server is running on http://${HOST}:${PORT}`);
 });
