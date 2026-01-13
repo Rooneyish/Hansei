@@ -1,6 +1,8 @@
 const { GoogleGenAI } = require("@google/genai");
 const axios = require("axios");
 const queries = require("../database/queries");
+const { encrypt, decrypt } = require("../utils/crypto");
+const KEY = Buffer.from(process.env.ENCRYPTION_KEY, "hex");
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -48,29 +50,27 @@ async function scanText(req, res) {
   }
 }
 
-// journalController.js
-
 async function submitJournal(req, res) {
   const userId = req.user.id;
-  const { content } = req.body;
+  const { content } = req.body; 
 
   if (!content || content.trim() === "") {
     return res.status(400).json({ error: "Journal content cannot be empty" });
   }
 
   try {
-    // 1. Create the journal entry
-    const entry = await queries.createJournalEntry(userId, content);
+    const encryptedContent = encrypt(content, KEY);
+
+    const entry = await queries.createJournalEntry(userId, encryptedContent);
     const journalId = entry.journal_id;
 
-    // 2. Handle AI Emotion Analysis
     let aiEmotion = "neutral";
     let aiConfidence = 0.0;
     let moodStatus = "Reflective ✨";
 
     try {
       const aiResponse = await axios.post("http://127.0.0.1:8000/analyze", {
-        text: content,
+        text: content, 
       });
       aiEmotion = aiResponse.data.emotion;
       aiConfidence = aiResponse.data.confidence;
@@ -79,20 +79,15 @@ async function submitJournal(req, res) {
       console.error("FastAPI Error: AI Engine unreachable.");
     }
 
-    // 3. Save emotion and update mood
     await queries.saveEmotionAnalysis(journalId, aiEmotion, aiConfidence);
     await queries.updateStatusAndMood(userId, moodStatus);
-
-    // --- ADDED THIS PART ---
-    // 4. Update the Streak
     const streakData = await queries.checkInUser(userId);
-    // -----------------------
 
     res.status(201).json({
       message: "Journal saved, mood, and streak updated!",
       mood: moodStatus,
-      streak: streakData.streak_count, // Send back the new streak
-      entry: entry,
+      streak: streakData.streak_count,
+      entry: { ...entry, content: content }, 
     });
   } catch (err) {
     console.error("Database Error:", err);
