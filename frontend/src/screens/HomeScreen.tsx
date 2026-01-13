@@ -24,7 +24,7 @@ const HomeScreen = ({
   onNavigateProfile,
   onNavigateSettings,
 }) => {
-  const [streak, setStreak] = useState(0);
+  const [streak, setStreak] = useState(null);
   const [mood, setMood] = useState('Reflective ✨');
   const [journalText, setJournalText] = useState('');
   const [loading, setLoading] = useState(true);
@@ -35,7 +35,7 @@ const HomeScreen = ({
     try {
       const response = await apiClient.get('/profile');
       const data = response.data.user;
-      setStreak(data.streak_count || 0);
+      setStreak(data.current_streak || 0);
       setMood(data.current_mood || 'Reflective ✨');
     } catch (err) {
       console.log('Error fetching profile:', err);
@@ -61,7 +61,6 @@ const HomeScreen = ({
         setJournalText(prev =>
           prev ? `${prev}\n${response.data.text}` : response.data.text,
         );
-        Alert.alert('Success', 'Text extracted!');
       }
     } catch (err) {
       Alert.alert('Scan Error', 'Could not extract text.');
@@ -86,8 +85,6 @@ const HomeScreen = ({
     ]);
   };
 
-  // HomeScreen.tsx
-
   const handleSubmitJournal = async () => {
     if (!journalText.trim()) {
       Alert.alert('Empty Entry', 'Please write or scan some thoughts first.');
@@ -100,19 +97,14 @@ const HomeScreen = ({
         content: journalText,
       });
 
-      // Update Mood
       if (response.data.mood) {
         setMood(response.data.mood);
       }
 
-      // --- ADDED THIS PART ---
-      // Update Streak
       if (response.data.streak !== undefined) {
         setStreak(response.data.streak);
       }
-      // -----------------------
-
-      Alert.alert('Reflected', `Mood detected: ${response.data.mood}`);
+      
       setJournalText('');
       Keyboard.dismiss();
     } catch (err) {
@@ -142,10 +134,14 @@ const HomeScreen = ({
           <View style={styles.statusRow}>
             <View style={styles.statusBubble}>
               <Text style={styles.statusLabel}>STREAK</Text>
-              <Text style={styles.statusValue}>{streak} 🔥</Text>
+              {streak === null ? (
+                <ActivityIndicator size="small" color="#004346" />
+              ) : (
+                <Text style={styles.statusValue}>{streak} 🔥</Text>
+              )}
             </View>
             <View style={styles.statusBubble}>
-              <Text style={styles.statusLabel}>MOOD</Text>
+              <Text style={styles.statusLabel}>CURRENT EMOTION</Text>
               <Text style={styles.statusValue}>{mood}</Text>
             </View>
           </View>

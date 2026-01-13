@@ -13,7 +13,7 @@ const GradientBackground = () => {
         cx={width * 0.2}
         cy={height * 0.3}
         r={width * 0.8}
-        color="#D5F3F3"
+        color="#bef2f2ff"
       >
         <BlurMask blur={100} style="normal" />
       </Circle>
@@ -22,7 +22,7 @@ const GradientBackground = () => {
         cx={width * 0.9}
         cy={height * 0.5}
         r={width * 0.7}
-        color="#D5F2DF"
+        color="#81e3d6ff"
       >
         <BlurMask blur={120} style="normal" />
       </Circle>
@@ -31,7 +31,7 @@ const GradientBackground = () => {
         cx={width * 0.1}
         cy={height * 0.9}
         r={width * 0.6}
-        color="#D5E9F2"
+        color="#a4d6edff"
       >
         <BlurMask blur={80} style="normal" />
       </Circle>
