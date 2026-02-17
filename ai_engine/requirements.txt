@@ -1,7 +1,9 @@
 fastapi
 uvicorn
-torch
-transformers
-numpy
+qdrant-client[fastembed]
 pandas
-scikit-learn
+langchain-ollama
+langchain-qdrant
+tqdm
+spacy
+contractions

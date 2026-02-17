@@ -14,3 +14,5 @@ runs/
 rag_df.csv
 ai_engine/rag_df.csv
 ai_engine/fine_tuned_roberta.pt
+clinical_kb.csv
+qdrant_storage
