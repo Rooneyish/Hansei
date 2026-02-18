@@ -140,11 +140,14 @@ async def analyze_journal(request: JournalRequest):
         
         max_idx = np.argmax(probs)
         predicted_emotion = EMOTIONS[max_idx]
+        confidence = float(probs[max_idx])
+        emoji = get_mood_details(predicted_emotion)
         
         return {
             "emotion": predicted_emotion,
-            "emoji": get_mood_details(predicted_emotion),
-            "confidence": round(float(probs[max_idx]), 4)
+            "emoji": emoji,
+            "confidence": round(confidence, 4),
+            "status_text": f"{predicted_emotion.capitalize()} {emoji}"
         }
     except Exception as e:
         print("Emotion Detection Error: {e}")
