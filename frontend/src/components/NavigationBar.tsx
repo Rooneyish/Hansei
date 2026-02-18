@@ -13,7 +13,7 @@ const NavigationBar = ({
   onNavigateHome,
   onNavigateProfile,
   onNavigateInsights,
-  onNavigateSettings,
+  onNavigateChatHistory,
   onPressAI,
 }) => {
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -68,9 +68,9 @@ const NavigationBar = ({
           </Animated.View>
         </View>
 
-        <TouchableOpacity style={styles.navItem} onPress={onNavigateSettings}>
+        <TouchableOpacity style={styles.navItem} onPress={onNavigateChatHistory}>
           <MaterialIcons
-            name="notifications-none"
+            name="history"
             size={28}
             color="rgba(0, 67, 70, 0.5)"
           />

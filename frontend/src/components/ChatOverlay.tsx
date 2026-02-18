@@ -1,4 +1,4 @@
-import React, { useState, useRef} from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,32 +15,78 @@ import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import apiClient from '../api/client';
 
-const ChatOverlay = ({ visible, onClose }) => {
-  const [messages, setMessages] = useState([
-    {
-      id: '1',
-      text: "Hi! I'm Hansei. How are you feeling today?",
-      sender: 'ai',
-    },
-  ]);
+const ChatOverlay = ({ visible, onClose, sessionId = null }) => {
+  const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [activeSessionId, setActiveSessionId] = useState(null);
   const flatListRef = useRef(null);
 
-  const sendMessage = async () => {
-    if (!inputText.trim()) return;
+  useEffect(() => {
+    if (visible) {
+      if (sessionId) {
+        setActiveSessionId(sessionId);
+        fetchHistory(sessionId);
+      } else {
+        startNewChat();
+      }
+    } else {
+      setMessages([]);
+      setActiveSessionId(null);
+    }
+  }, [visible, sessionId]);
 
-    const userMsg = {
+  const startNewChat = async () => {
+    setIsLoading(true);
+    try {
+      const response = await apiClient.post('/chat/new-session');
+      setActiveSessionId(response.data.session_id);
+      setMessages([
+        {
+          id: 'welcome',
+          text: "Hi! I'm Hansei. I've started a new session. How can I help you today?",
+          sender: 'ai',
+        },
+      ]);
+    } catch (error) {
+      console.error('New session error:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchHistory = async id => {
+    setIsLoading(true);
+    try {
+      const response = await apiClient.get(`/chat-history/${id}`);
+      setMessages(response.data.history);
+    } catch (error) {
+      console.error('History fetch error:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const sendMessage = async () => {
+    if (!inputText.trim() || !activeSessionId) return;
+
+    const userMsgText = inputText.trim();
+    const userMsgObj = {
       id: Date.now().toString(),
-      text: inputText,
+      text: userMsgText,
       sender: 'user',
     };
-    setMessages(prev => [...prev, userMsg]);
+
+    setMessages(prev => [...prev, userMsgObj]);
     setInputText('');
     setIsTyping(true);
 
     try {
-      const response = await apiClient.post('/chat', { message: inputText });
+      const response = await apiClient.post('/chat', {
+        message: userMsgText,
+        session_id: activeSessionId,
+      });
 
       const aiMsg = {
         id: (Date.now() + 1).toString(),
@@ -53,7 +99,7 @@ const ChatOverlay = ({ visible, onClose }) => {
         ...prev,
         {
           id: 'error',
-          text: "Sorry, I'm having trouble connecting right now.",
+          text: "Sorry, I'm having trouble connecting to my thoughts.",
           sender: 'ai',
         },
       ]);
@@ -77,33 +123,42 @@ const ChatOverlay = ({ visible, onClose }) => {
             </TouchableOpacity>
           </View>
 
-          {/* Messages */}
-          <FlatList
-            ref={flatListRef}
-            data={messages}
-            keyExtractor={item => item.id}
-            contentContainerStyle={styles.messageList}
-            onContentSizeChange={() => flatListRef.current?.scrollToEnd()}
-            renderItem={({ item }) => (
-              <View
-                style={[
-                  styles.messageBubble,
-                  item.sender === 'user' ? styles.userBubble : styles.aiBubble,
-                ]}
-              >
-                <Text
+          {/* Body */}
+          {isLoading ? (
+            <View style={styles.center}>
+              <ActivityIndicator size="large" color="#004346" />
+            </View>
+          ) : (
+            <FlatList
+              ref={flatListRef}
+              data={messages}
+              keyExtractor={item => item.id}
+              contentContainerStyle={styles.messageList}
+              onContentSizeChange={() =>
+                flatListRef.current?.scrollToEnd({ animated: true })
+              }
+              renderItem={({ item }) => (
+                <View
                   style={[
-                    styles.messageText,
-                    item.sender === 'user' ? styles.userText : styles.aiText,
+                    styles.messageBubble,
+                    item.sender === 'user'
+                      ? styles.userBubble
+                      : styles.aiBubble,
                   ]}
                 >
-                  {item.text}
-                </Text>
-              </View>
-            )}
-          />
+                  <Text
+                    style={[
+                      styles.messageText,
+                      item.sender === 'user' ? styles.userText : styles.aiText,
+                    ]}
+                  >
+                    {item.text}
+                  </Text>
+                </View>
+              )}
+            />
+          )}
 
-          {/* Input */}
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
@@ -122,12 +177,15 @@ const ChatOverlay = ({ visible, onClose }) => {
                   onChangeText={setInputText}
                   multiline
                 />
-                <TouchableOpacity onPress={sendMessage} style={styles.sendBtn}>
-                  {isTyping ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <MaterialIcons name="send" size={24} color="#fff" />
-                  )}
+                <TouchableOpacity
+                  onPress={sendMessage}
+                  style={[
+                    styles.sendBtn,
+                    (!inputText.trim() || isTyping) && { opacity: 0.5 },
+                  ]}
+                  disabled={!inputText.trim() || isTyping}
+                >
+                  <MaterialIcons name="send" size={24} color="#fff" />
                 </TouchableOpacity>
               </View>
             </View>
@@ -139,12 +197,12 @@ const ChatOverlay = ({ visible, onClose }) => {
 };
 
 const styles = StyleSheet.create({
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 67, 70, 0.9)' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 40, 45, 0.85)' },
   chatContainer: {
     flex: 1,
     backgroundColor: '#F0F7F7',
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
+    borderTopLeftRadius: 40,
+    borderTopRightRadius: 40,
     marginTop: 50,
   },
   header: {
@@ -154,6 +212,9 @@ const styles = StyleSheet.create({
     padding: 20,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.05)',
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 40,
+    borderTopRightRadius: 40,
   },
   headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   aiStatusDot: {
@@ -163,17 +224,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#4CAF50',
   },
   headerText: { fontSize: 18, fontWeight: '800', color: '#004346' },
-  messageList: { padding: 20, gap: 15 },
-  messageBubble: { maxWidth: '80%', padding: 15, borderRadius: 20 },
+  messageList: { padding: 20, gap: 15, paddingBottom: 40 },
+  messageBubble: { maxWidth: '85%', padding: 15, borderRadius: 22 },
   userBubble: {
     alignSelf: 'flex-end',
     backgroundColor: '#004346',
-    borderBottomRightRadius: 5,
+    borderBottomRightRadius: 4,
   },
   aiBubble: {
     alignSelf: 'flex-start',
     backgroundColor: '#fff',
-    borderBottomLeftRadius: 5,
+    borderBottomLeftRadius: 4,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
   messageText: { fontSize: 16, lineHeight: 22 },
   userText: { color: '#fff' },
@@ -200,15 +266,17 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     maxHeight: 100,
     color: '#004346',
+    fontSize: 16,
   },
   sendBtn: {
     backgroundColor: '#004346',
-    width: 45,
-    height: 45,
-    borderRadius: 22.5,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 });
 
 export default ChatOverlay;

@@ -23,7 +23,7 @@ const HomeScreen = ({
   onNavigateHome,
   onNavigateInsights,
   onNavigateProfile,
-  onNavigateSettings,
+  onNavigateChatHistory,
 }) => {
   const [streak, setStreak] = useState(null);
   const [mood, setMood] = useState('Reflective ✨');
@@ -224,7 +224,7 @@ const HomeScreen = ({
         onNavigateHome={onNavigateHome}
         onNavigateProfile={onNavigateProfile}
         onNavigateInsights={onNavigateInsights}
-        onNavigateSettings={onNavigateSettings}
+        onNavigateChatHistory={onNavigateChatHistory}
         onPressAI={()=>setIsChatVisible(true)}
       />
     </View>

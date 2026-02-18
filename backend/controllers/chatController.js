@@ -6,17 +6,20 @@ const KEY = Buffer.from(process.env.ENCRYPTION_KEY, "hex");
 async function handleChat(req, res) {
   try {
     const userId = req.user.id;
-    const { message } = req.body;
+    const { message, session_id } = req.body;
+
+    let sessionId = session_id;
 
     if (!message) {
       return res.status(400).json({ error: "Message is required" });
     }
 
-    let activeSession = await queries.findActiveChatSession(userId);
-    if (!activeSession) {
-      activeSession = await queries.startNewChatSession(userId);
+    if (!sessionId) {
+      let active = await queries.findActiveChatSession(userId);
+      sessionId = active
+        ? active.session_id
+        : (await queries.startNewChatSession(userId)).session_id;
     }
-    const sessionId = activeSession.session_id;
 
     const encryptedUserText = encrypt(message, KEY);
     await queries.saveChatMessage(sessionId, "user", encryptedUserText);
@@ -61,19 +64,21 @@ async function handleEndSession(req, res) {
 async function getChatHistory(req, res) {
   try {
     const userId = req.user.id;
+    let sessionId = req.params.sessionsId;
 
-    const activeSession = await queries.findActiveChatSession(userId);
-    if (!activeSession) {
-      return res.json({ history: [] }); 
+    if (!sessionId) {
+      const active = await queries.findActiveChatSession(userId);
+      if (!active) return res.json({ history: [] });
+      sessionId = active.session_id;
     }
 
-    const messages = await queries.getMessagesBySessionId(activeSession.session_id);
+    const messages = await queries.getMessagesBySessionId(sessionId);
 
-    const history = messages.map(msg => ({
-      id: Math.random().toString(), 
+    const history = messages.map((msg) => ({
+      id: Math.random().toString(),
       text: decrypt(msg.encrypted_text, KEY),
-      sender: msg.role === 'user' ? 'user' : 'ai',
-      created_at: msg.created_at
+      sender: msg.role === "user" ? "user" : "ai",
+      created_at: msg.created_at,
     }));
 
     return res.json({ history });
@@ -83,8 +88,46 @@ async function getChatHistory(req, res) {
   }
 }
 
-module.exports={
-    handleChat,
-    handleEndSession,
-    getChatHistory
+async function listSessions(req, res) {
+  try {
+    const userId = req.user.id;
+    const sessions = await queries.getAllUserSessions(userId);
+    const formatted = sessions.map((s) => ({
+      id: s.session_id,
+      start_time: s.start_time,
+      end_time: s.end_time,
+      preview_text: s.preview_text
+        ? decrypt(s.preview_text, KEY)
+        : "New Conversation",
+    }));
+    res.json({ sessions: formatted });
+  } catch (err) {
+    console.error("List Sessions Error:", err.message);
+    res.status(500).json({ error: "Failed to fetch session list" });
+  }
 }
+
+async function startNewSession(req, res) {
+  try {
+    const userId = req.user.id;
+    const active = await queries.findActiveChatSession(userId);
+
+    if (active) {
+      await queries.endChatSession(active.session_id);
+    }
+
+    const newSession = await queries.startNewChatSession(userId);
+    return res.json({ session_id: newSession.session_id });
+  } catch (err) {
+    console.error("Start Session Error:", err.message);
+    res.status(500).json({ error: "Failed to start fresh session" });
+  }
+}
+
+module.exports = {
+  handleChat,
+  handleEndSession,
+  getChatHistory,
+  listSessions,
+  startNewSession
+};

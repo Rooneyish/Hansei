@@ -181,7 +181,7 @@ async function deleteUser(userId) {
 }
 
 async function findActiveChatSession(userId) {
-  const query = `SELECT session_id from chat_sessions WHERE user_id = $1 AND end_time = NULL LIMIT 1`;
+  const query = `SELECT session_id from chat_sessions WHERE user_id = $1 AND end_time IS NULL LIMIT 1`;
   try {
     const result = await pool.query(query, [userId]);
     return result.rows[0];
@@ -253,6 +253,23 @@ async function getMessagesBySessionId(sessionId) {
   }
 }
 
+async function getAllUserSessions(userId) {
+  const query = `
+    SELECT 
+      s.session_id, 
+      s.start_time, 
+      s.end_time,
+      (SELECT encrypted_text FROM chat_messages m 
+       WHERE m.session_id = s.session_id 
+       ORDER BY created_at ASC LIMIT 1) as preview_text
+    FROM chat_sessions s
+    WHERE s.user_id = $1
+    ORDER BY s.start_time DESC
+  `;
+  const result = await pool.query(query, [userId]);
+  return result.rows;
+}
+
 module.exports = {
   registerUser,
   findUserByUsername,
@@ -272,4 +289,5 @@ module.exports = {
   getMessagesBySessionId,
   endChatSession,
   saveChatMessage,
+  getAllUserSessions,
 };
