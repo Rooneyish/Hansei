@@ -16,6 +16,7 @@ import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import GradientBackground from '../components/GradientBackground';
 import NavigationBar from '../components/NavigationBar';
+import ChatOverlay from '../components/ChatOverlay';
 import apiClient from '../api/client';
 
 const HomeScreen = ({
@@ -30,6 +31,7 @@ const HomeScreen = ({
   const [loading, setLoading] = useState(true);
   const [isScanning, setIsScanning] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isChatVisible, setIsChatVisible] = useState(false);
 
   const fetchUserData = useCallback(async () => {
     try {
@@ -104,7 +106,7 @@ const HomeScreen = ({
       if (response.data.streak !== undefined) {
         setStreak(response.data.streak);
       }
-      
+
       setJournalText('');
       Keyboard.dismiss();
     } catch (err) {
@@ -214,11 +216,16 @@ const HomeScreen = ({
           </View>
         </ScrollView>
       </SafeAreaView>
+      <ChatOverlay
+        visible={isChatVisible}
+        onClose={() => setIsChatVisible(false)}
+      />
       <NavigationBar
         onNavigateHome={onNavigateHome}
         onNavigateProfile={onNavigateProfile}
         onNavigateInsights={onNavigateInsights}
         onNavigateSettings={onNavigateSettings}
+        onPressAI={()=>setIsChatVisible(true)}
       />
     </View>
   );

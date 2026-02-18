@@ -8,11 +8,10 @@ const HOST = "0.0.0.0";
 
 app.use(cors());
 
-// IMPORTANT: Body parsers MUST come before routes
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
-// Test route (no prefix)
+// Test route 
 app.get("/test", (req, res) => {
   res.send("Server is live!");
 });
@@ -22,6 +21,10 @@ app.use("/api/auth", require("./routes/authRoutes"));
 
 // User routes (Profile/Streaks/Journal)
 app.use("/api", require("./routes/userRoutes"));
+
+// Chat Bot routes (Chat)
+app.use("/api", require("./routes/chatRoutes"));
+
 
 app.listen(PORT, HOST, () => {
   console.log(`Server is running on http://${HOST}:${PORT}`);

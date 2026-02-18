@@ -180,6 +180,79 @@ async function deleteUser(userId) {
   return result.rowCount > 0;
 }
 
+async function findActiveChatSession(userId) {
+  const query = `SELECT session_id from chat_sessions WHERE user_id = $1 AND end_time = NULL LIMIT 1`;
+  try {
+    const result = await pool.query(query, [userId]);
+    return result.rows[0];
+  } catch (err) {
+    console.error("Error finding active session", err.stack);
+    throw err;
+  }
+}
+
+async function startNewChatSession(userId) {
+  const query = `
+    INSERT INTO chat_sessions (user_id, start_time) 
+    VALUES ($1, NOW()) 
+    RETURNING session_id
+  `;
+  try {
+    const result = await pool.query(query, [userId]);
+    return result.rows[0];
+  } catch (err) {
+    console.error("Error starting new chat session", err.stack);
+    throw err;
+  }
+}
+
+async function saveChatMessage(sessionId, role, encryptedText) {
+  const query = `
+    INSERT INTO chat_messages (session_id, role, encrypted_text) 
+    VALUES ($1, $2, $3) 
+    RETURNING message_id, created_at
+  `;
+  try {
+    const result = await pool.query(query, [sessionId, role, encryptedText]);
+    return result.rows[0];
+  } catch (err) {
+    console.error("Error saving chat message", err.stack);
+    throw err;
+  }
+}
+
+async function endChatSession(sessionId) {
+  const query = `
+    UPDATE chat_sessions 
+    SET end_time = NOW() 
+    WHERE session_id = $1 
+    RETURNING *
+  `;
+  try {
+    const result = await pool.query(query, [sessionId]);
+    return result.rowCount > 0;
+  } catch (err) {
+    console.error("Error ending chat session", err.stack);
+    throw err;
+  }
+}
+
+async function getMessagesBySessionId(sessionId) {
+  const query = `
+    SELECT role, encrypted_text, created_at 
+    FROM chat_messages 
+    WHERE session_id = $1 
+    ORDER BY created_at ASC
+  `;
+  try {
+    const result = await pool.query(query, [sessionId]);
+    return result.rows;
+  } catch (err) {
+    console.error("Error fetching session history", err.stack);
+    throw err;
+  }
+}
+
 module.exports = {
   registerUser,
   findUserByUsername,
@@ -194,4 +267,9 @@ module.exports = {
   createJournalEntry,
   saveEmotionAnalysis,
   updateStatusAndMood,
+  findActiveChatSession,
+  startNewChatSession,
+  getMessagesBySessionId,
+  endChatSession,
+  saveChatMessage,
 };

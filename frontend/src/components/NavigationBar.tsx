@@ -14,6 +14,7 @@ const NavigationBar = ({
   onNavigateProfile,
   onNavigateInsights,
   onNavigateSettings,
+  onPressAI,
 }) => {
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
@@ -58,7 +59,7 @@ const NavigationBar = ({
               { transform: [{ scale: pulseAnim }] },
             ]}
           >
-            <TouchableOpacity activeOpacity={0.9} style={styles.aiButtonInner}>
+            <TouchableOpacity activeOpacity={0.9} style={styles.aiButtonInner} onPress={onPressAI}>
               <Image
                 source={require('../assets/logo_light.png')}
                 style={styles.aiLogo}

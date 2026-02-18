@@ -3,7 +3,7 @@ const router = express.Router();
 const authenticate = require('../middleware/authenticate');
 const userController = require('../controllers/userController');
 const streakController = require('../controllers/streakController');
-const journalController = require('../controllers/journalController'); // ADDED
+const journalController = require('../controllers/journalController'); 
 
 // Profile Routes
 router.get('/profile', authenticate, userController.showUserProfile);
