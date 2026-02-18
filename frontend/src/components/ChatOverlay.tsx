@@ -59,7 +59,7 @@ const ChatOverlay = ({ visible, onClose, sessionId = null }) => {
   const fetchHistory = async id => {
     setIsLoading(true);
     try {
-      const response = await apiClient.get(`/chat-history/${id}`);
+      const response = await apiClient.get(`/chat/history/${id}`);
       setMessages(response.data.history);
     } catch (error) {
       console.error('History fetch error:', error);
@@ -79,12 +79,13 @@ const ChatOverlay = ({ visible, onClose, sessionId = null }) => {
     };
 
     setMessages(prev => [...prev, userMsgObj]);
+    const currentInput = inputText;
     setInputText('');
     setIsTyping(true);
 
     try {
       const response = await apiClient.post('/chat', {
-        message: userMsgText,
+        message: currentInput,
         session_id: activeSessionId,
       });
 

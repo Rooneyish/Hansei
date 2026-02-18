@@ -6,6 +6,8 @@ import LoginScreen from './src/screens/LoginScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import UserProfileScreen from './src/screens/UserProfileScreen';
 import EditProfileScreen from './src/screens/EditProfileScreen';
+import HistoryScreen from './src/screens/HistoryScreen';
+import ChatOverlay from './src/components/ChatOverlay';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const App = () => {
@@ -17,7 +19,13 @@ const App = () => {
     | 'profile'
     | 'insights'
     | 'editProfile'
+    | 'history'
   >('welcome');
+
+  const [isChatVisible, setIsChatVisible] = useState(false);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
+    null,
+  );
 
   const fadeValue = useRef(new Animated.Value(1)).current;
   const scaleValue = useRef(new Animated.Value(1)).current;
@@ -31,7 +39,8 @@ const App = () => {
         | 'home'
         | 'profile'
         | 'insights'
-        | 'editProfile',
+        | 'editProfile'
+        | 'history',
     ) => {
       if (screenName === currentScreen) return;
 
@@ -120,7 +129,11 @@ const App = () => {
             onNavigateProfile={() => navigateTo('profile')}
             onNavigateHome={() => navigateTo('home')}
             onNavigateInsights={() => navigateTo('insights')}
-            onNavigateSettings={() => navigateTo('home')}
+            onNavigateChatHistory={() => navigateTo('history')}
+            onPressAI={() => {
+              setSelectedSessionId(null);
+              setIsChatVisible(true);
+            }}
           />
         );
       case 'profile':
@@ -129,9 +142,13 @@ const App = () => {
             onNavigateProfile={() => navigateTo('profile')}
             onNavigateHome={() => navigateTo('home')}
             onNavigateInsights={() => navigateTo('insights')}
-            onNavigateSettings={() => navigateTo('home')}
+            onNavigateChatHistory={() => navigateTo('history')}
             onNavigateEditProfile={() => navigateTo('editProfile')}
             onLogout={handleLogout}
+            onPressAI={() => {
+              setSelectedSessionId(null);
+              setIsChatVisible(true);
+            }}
           />
         );
       case 'editProfile':
@@ -142,7 +159,28 @@ const App = () => {
             onNavigateProfile={() => navigateTo('profile')}
             onNavigateHome={() => navigateTo('home')}
             onNavigateInsights={() => navigateTo('insights')}
-            onNavigateSettings={() => navigateTo('home')}
+            onNavigateChatHistory={() => navigateTo('history')}
+            onPressAI={() => {
+              setSelectedSessionId(null);
+              setIsChatVisible(true);
+            }}
+          />
+        );
+      case 'history':
+        return (
+          <HistoryScreen
+            onSelectChat={id => {
+              setSelectedSessionId(id);
+              setIsChatVisible(true);
+            }}
+            onNavigateProfile={() => navigateTo('profile')}
+            onNavigateHome={() => navigateTo('home')}
+            onNavigateInsights={() => navigateTo('insights')}
+            onNavigateChatHistory={() => navigateTo('history')}
+            onPressAI={() => {
+              setSelectedSessionId(null);
+              setIsChatVisible(true);
+            }}
           />
         );
       default:
@@ -161,6 +199,15 @@ const App = () => {
       >
         {renderScreen()}
       </Animated.View>
+
+      <ChatOverlay
+        visible={isChatVisible}
+        onClose={() => {
+          setIsChatVisible(false);
+          setSelectedSessionId(null); // Reset when closing
+        }}
+        sessionId={selectedSessionId}
+      />
     </View>
   );
 };

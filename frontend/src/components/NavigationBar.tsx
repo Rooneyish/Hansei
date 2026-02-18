@@ -48,7 +48,7 @@ const NavigationBar = ({
           <MaterialIcons
             name="bubble-chart"
             size={28}
-            color="rgba(0, 67, 70, 0.5)"
+            color="#004346"
           />
         </TouchableOpacity>
 
@@ -72,7 +72,7 @@ const NavigationBar = ({
           <MaterialIcons
             name="history"
             size={28}
-            color="rgba(0, 67, 70, 0.5)"
+            color="#004346"
           />
         </TouchableOpacity>
 

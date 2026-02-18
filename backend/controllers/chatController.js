@@ -24,9 +24,8 @@ async function handleChat(req, res) {
     const encryptedUserText = encrypt(message, KEY);
     await queries.saveChatMessage(sessionId, "user", encryptedUserText);
 
-    const aiResponse = await axios.post("http://127.0.0.1:8000/chat", {
-      message,
-    });
+    const aiResponse = await axios.post("http://127.0.0.1:8000/chat", 
+      {message}, {timeout: 60000});
     const reply = aiResponse.data.reply;
 
     const encryptedAiText = encrypt(reply, KEY);
@@ -64,7 +63,7 @@ async function handleEndSession(req, res) {
 async function getChatHistory(req, res) {
   try {
     const userId = req.user.id;
-    let sessionId = req.params.sessionsId;
+    let sessionId = req.params.sessionId;
 
     if (!sessionId) {
       const active = await queries.findActiveChatSession(userId);

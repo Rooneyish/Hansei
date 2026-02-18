@@ -14,14 +14,19 @@ from src.utils import clean_text, EMOTIONS, get_mood_details
 
 app = FastAPI(title="Hansei AI Engine: Emotion & Chat")
 
+emotion_model = None
+emotion_tokenizer = None
+qwen_model = None
+vectorstore = None
+
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"Device: {DEVICE}")
 
 
-emotion_tokenizer = RobertaTokenizer.from_pretrained("roberta-base")
-emotion_model = FineTuneRoBERTa(num_labels=len(EMOTIONS))
 
 try:
+    emotion_tokenizer = RobertaTokenizer.from_pretrained("roberta-base")
+    emotion_model = FineTuneRoBERTa(num_labels=len(EMOTIONS))
     emotion_model.load_state_dict(torch.load("fine_tuned_roberta.pt", map_location=DEVICE))
     emotion_model.to(DEVICE)
     emotion_model.eval()
@@ -51,9 +56,9 @@ try:
         "text-generation", 
         model=qwen_model, 
         tokenizer=qwen_tokenizer, 
-        max_new_tokens=120,      
-        temperature=0.75, 
-        repetition_penalty=1.2,  
+        max_new_tokens=256,      
+        temperature=0.7, 
+        repetition_penalty=1,  
         do_sample=True,
         eos_token_id=qwen_tokenizer.eos_token_id,
         pad_token_id=qwen_tokenizer.pad_token_id,
@@ -74,6 +79,7 @@ try:
     print('Qdrant Connection Successful')
 except Exception as e:
     print(f"Error connecting to Qdrant: {e}")
+    vectorstore=None
 
 system_template = """
 You are 'Hansei', a warm, empathetic, and supportive mental well-being friend.
@@ -95,6 +101,10 @@ RULES:
 3. Use a friendly, casual tone. Do not act like a clinical doctor.
 4. Keep your response to ONE paragraph (max 4 sentences).
 5. Stop writing as soon as you have answered the user.
+6. ONLY provide conversational, friendly responses.
+7. NEVER output Python code, variables, or technical placeholders like '{{user_input}}'.
+8. Use the Context only for inspiration on what to say next.
+9. If the Context contains technical code, IGNORE the code and focus on the emotions.
 
 Always end your response with a gentle, open-ended question to keep the conversation going (e.g., 'What do you think might help you feel a bit more comfortable right now?').
 
@@ -109,16 +119,24 @@ def get_relevant_docs(question):
     if question.lower().strip() in greetings:
         return "No context needed for a simple greeting."
     
-    docs = vectorstore.as_retriever(search_kwargs={"k": 2}).invoke(question)
-    return "\n\n".join(doc.page_content for doc in docs)
+    if vectorstore is not None:
+        try:
+            docs = vectorstore.as_retriever(search_kwargs={"k": 2}).invoke(question)
+            return "\n\n".join(doc.page_content for doc in docs)
+        except Exception as e:
+            print(f"Retriever error: ", {e})
+            return "Knowledge base search failed"
+        return "Knowledge base unavailable"
 
-rag_chain = (
-    {"context": RunnableLambda(get_relevant_docs), "question": RunnablePassthrough()}
-    | prompt
-    | llm
-    | StrOutputParser()
-)
-
+if llm:
+    rag_chain = (
+        {"context": RunnableLambda(get_relevant_docs), "question": RunnablePassthrough()}
+        | prompt
+        | llm
+        | StrOutputParser()
+    )
+else:
+    rag_chain = None
 class JournalRequest(BaseModel):
     text: str
 
@@ -150,7 +168,7 @@ async def analyze_journal(request: JournalRequest):
             "status_text": f"{predicted_emotion.capitalize()} {emoji}"
         }
     except Exception as e:
-        print("Emotion Detection Error: {e}")
+        print(f"Emotion Detection Error: {e}")
         raise HTTPException(status_code=500, detail="Error during emotion detection.")
 
 @app.post("/chat")
@@ -164,7 +182,9 @@ async def chat_with_hansei(request: ChatRequest):
         if "Hansei:" in response_text:
             response_text = response_text.split("Hansei:")[-1]
             
-        response_text = response_text.split("User:")[0].split("Assistant:")[0].strip()
+        stop_sequences = ["User:", "Assistant:", "if __name__", "import ", "{user_input}", "print("]
+        for seq in stop_sequences:
+            response_text = response_text.split(seq)[0]
         response_text = response_text.replace("---", "").strip()
 
         return {"reply": response_text}

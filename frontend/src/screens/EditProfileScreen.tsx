@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import GradientBackground from '../components/GradientBackground';
+import ChatOverlay from '../components/ChatOverlay';
 import NavigationBar from '../components/NavigationBar';
 import apiClient from '../api/client';
 
@@ -23,11 +24,12 @@ const EditProfileScreen = ({
   onNavigateHome,
   onNavigateInsights,
   onNavigateProfile,
-  onNavigateSettings,
+  onNavigateChatHistory,
 }) => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showPasswordFields, setShowPasswordFields] = useState(false);
+  const [isChatVisible, setIsChatVisible] = useState(false);
 
   const [formData, setFormData] = useState({
     username: '',
@@ -227,12 +229,16 @@ const EditProfileScreen = ({
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
-
+      <ChatOverlay
+        visible={isChatVisible}
+        onClose={() => setIsChatVisible(false)}
+      />
       <NavigationBar
         onNavigateHome={onNavigateHome}
         onNavigateProfile={onNavigateProfile}
         onNavigateInsights={onNavigateInsights}
-        onNavigateSettings={onNavigateSettings}
+        onNavigateChatHistory={onNavigateChatHistory}
+        onPressAI={() => setIsChatVisible(true)}
       />
     </View>
   );

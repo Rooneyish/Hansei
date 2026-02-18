@@ -11,18 +11,20 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import GradientBackground from '../components/GradientBackground';
 import NavigationBar from '../components/NavigationBar';
+import ChatOverlay from '../components/ChatOverlay';
 import apiClient from '../api/client';
 
 const UserProfileScreen = ({
   onNavigateHome,
   onNavigateProfile,
   onNavigateInsights,
-  onNavigateSettings,
+  onNavigateChatHistory,
   onLogout,
   onNavigateEditProfile,
 }) => {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true);  
+  const [isChatVisible, setIsChatVisible] = useState(false);
 
   useEffect(() => {
     apiClient
@@ -76,11 +78,16 @@ const UserProfileScreen = ({
           </View>
         </ScrollView>
       </SafeAreaView>
+      <ChatOverlay
+        visible={isChatVisible}
+        onClose={() => setIsChatVisible(false)}
+      />
       <NavigationBar
         onNavigateHome={onNavigateHome}
         onNavigateProfile={onNavigateProfile}
         onNavigateInsights={onNavigateInsights}
-        onNavigateSettings={onNavigateSettings}
+        onNavigateChatHistory={onNavigateChatHistory}
+        onPressAI={()=>setIsChatVisible(true)}
       />
     </View>
   );
