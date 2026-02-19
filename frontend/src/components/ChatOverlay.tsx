@@ -10,10 +10,48 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Image,
+  Animated,
+  Easing,
 } from 'react-native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import GradientBackground from './GradientBackground';
 import apiClient from '../api/client';
+
+const BreathingAvatar = () => {
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.15,
+          duration: 2000,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 2000,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]),
+    ).start();
+  }, [pulseAnim]);
+
+  return (
+    <View style={styles.avatarContainer}>
+      <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+        <Image
+          source={require('../assets/logo_light.png')}
+          style={styles.miniLogo}
+        />
+      </Animated.View>
+    </View>
+  );
+};
 
 const ChatOverlay = ({ visible, onClose, sessionId = null }) => {
   const [messages, setMessages] = useState([]);
@@ -45,7 +83,7 @@ const ChatOverlay = ({ visible, onClose, sessionId = null }) => {
       setMessages([
         {
           id: 'welcome',
-          text: "Hi! I'm Hansei. I've started a new session. How can I help you today?",
+          text: "Hi, I'm Hansei. Let's take a moment to reflect together. What's on your mind?",
           sender: 'ai',
         },
       ]);
@@ -72,35 +110,32 @@ const ChatOverlay = ({ visible, onClose, sessionId = null }) => {
     if (!inputText.trim() || !activeSessionId) return;
 
     const userMsgText = inputText.trim();
-    const userMsgObj = {
-      id: Date.now().toString(),
-      text: userMsgText,
-      sender: 'user',
-    };
-
-    setMessages(prev => [...prev, userMsgObj]);
-    const currentInput = inputText;
+    setMessages(prev => [
+      ...prev,
+      { id: Date.now().toString(), text: userMsgText, sender: 'user' },
+    ]);
     setInputText('');
     setIsTyping(true);
 
     try {
       const response = await apiClient.post('/chat', {
-        message: currentInput,
+        message: userMsgText,
         session_id: activeSessionId,
       });
-
-      const aiMsg = {
-        id: (Date.now() + 1).toString(),
-        text: response.data.reply,
-        sender: 'ai',
-      };
-      setMessages(prev => [...prev, aiMsg]);
+      setMessages(prev => [
+        ...prev,
+        {
+          id: (Date.now() + 1).toString(),
+          text: response.data.reply,
+          sender: 'ai',
+        },
+      ]);
     } catch (error) {
       setMessages(prev => [
         ...prev,
         {
-          id: 'error',
-          text: "Sorry, I'm having trouble connecting to my thoughts.",
+          id: 'err',
+          text: "I'm having a quiet moment. Let's try again soon.",
           sender: 'ai',
         },
       ]);
@@ -109,25 +144,52 @@ const ChatOverlay = ({ visible, onClose, sessionId = null }) => {
     }
   };
 
+  const renderMessage = ({ item }) => {
+    const isAi = item.sender === 'ai';
+    return (
+      <View
+        style={[
+          styles.messageWrapper,
+          isAi ? styles.aiWrapper : styles.userWrapper,
+        ]}
+      >
+        {isAi && <BreathingAvatar />}
+        <View
+          style={[styles.bubble, isAi ? styles.aiBubble : styles.userBubble]}
+        >
+          <Text
+            style={[styles.messageText, isAi ? styles.aiText : styles.userText]}
+          >
+            {item.text}
+          </Text>
+        </View>
+      </View>
+    );
+  };
+
   return (
     <Modal visible={visible} animationType="slide" transparent={true}>
       <View style={styles.modalOverlay}>
-        <SafeAreaView style={styles.chatContainer}>
+        <GradientBackground />
+        <SafeAreaView style={styles.safeArea}>
           {/* Header */}
           <View style={styles.header}>
-            <View style={styles.headerTitleRow}>
-              <View style={styles.aiStatusDot} />
-              <Text style={styles.headerText}>Hansei AI</Text>
-            </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <MaterialIcons name="close" size={24} color="#004346" />
+            <TouchableOpacity onPress={onClose} style={styles.iconBtn}>
+              <MaterialIcons name="expand-more" size={32} color="#004346" />
             </TouchableOpacity>
+            <View style={styles.headerCenter}>
+              <Text style={styles.headerTitle}>Hansei</Text>
+              <View style={styles.statusRow}>
+                <View style={styles.activeDot} />
+                <Text style={styles.statusText}>Listening</Text>
+              </View>
+            </View>
+            <View style={{ width: 40 }} />
           </View>
 
-          {/* Body */}
           {isLoading ? (
             <View style={styles.center}>
-              <ActivityIndicator size="large" color="#004346" />
+              <ActivityIndicator size="small" color="#004346" />
             </View>
           ) : (
             <FlatList
@@ -138,42 +200,30 @@ const ChatOverlay = ({ visible, onClose, sessionId = null }) => {
               onContentSizeChange={() =>
                 flatListRef.current?.scrollToEnd({ animated: true })
               }
-              renderItem={({ item }) => (
-                <View
-                  style={[
-                    styles.messageBubble,
-                    item.sender === 'user'
-                      ? styles.userBubble
-                      : styles.aiBubble,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.messageText,
-                      item.sender === 'user' ? styles.userText : styles.aiText,
-                    ]}
-                  >
-                    {item.text}
-                  </Text>
-                </View>
-              )}
+              renderItem={renderMessage}
+              showsVerticalScrollIndicator={false}
             />
           )}
 
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
           >
-            <View style={styles.inputArea}>
+            <View style={styles.inputSection}>
               {isTyping && (
-                <Text style={styles.typingIndicator}>
-                  Hansei is thinking...
-                </Text>
+                <View style={styles.typingContainer}>
+                  <ActivityIndicator
+                    size="small"
+                    color="#004346"
+                    style={{ transform: [{ scale: 0.5 }] }}
+                  />
+                  <Text style={styles.typingText}>Hansei is reflecting...</Text>
+                </View>
               )}
-              <View style={styles.inputWrapper}>
+              <View style={styles.inputContainer}>
                 <TextInput
                   style={styles.textInput}
-                  placeholder="Type a message..."
+                  placeholder="Share your thoughts..."
+                  placeholderTextColor="rgba(0, 67, 70, 0.4)"
                   value={inputText}
                   onChangeText={setInputText}
                   multiline
@@ -182,11 +232,11 @@ const ChatOverlay = ({ visible, onClose, sessionId = null }) => {
                   onPress={sendMessage}
                   style={[
                     styles.sendBtn,
-                    (!inputText.trim() || isTyping) && { opacity: 0.5 },
+                    !inputText.trim() && styles.sendBtnDisabled,
                   ]}
                   disabled={!inputText.trim() || isTyping}
                 >
-                  <MaterialIcons name="send" size={24} color="#fff" />
+                  <MaterialIcons name="arrow-upward" size={24} color="#fff" />
                 </TouchableOpacity>
               </View>
             </View>
@@ -198,86 +248,122 @@ const ChatOverlay = ({ visible, onClose, sessionId = null }) => {
 };
 
 const styles = StyleSheet.create({
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 40, 45, 0.85)' },
-  chatContainer: {
-    flex: 1,
-    backgroundColor: '#F0F7F7',
-    borderTopLeftRadius: 40,
-    borderTopRightRadius: 40,
-    marginTop: 50,
-  },
+  modalOverlay: { flex: 1, backgroundColor: '#fff' },
+  safeArea: { flex: 1 },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 40,
-    borderTopRightRadius: 40,
+    justifyContent: 'space-between',
+    paddingHorizontal: 15,
+    paddingVertical: 10,
   },
-  headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  aiStatusDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+  headerCenter: { alignItems: 'center' },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: '#004346' },
+  statusRow: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
+  activeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
     backgroundColor: '#4CAF50',
+    marginRight: 5,
   },
-  headerText: { fontSize: 18, fontWeight: '800', color: '#004346' },
-  messageList: { padding: 20, gap: 15, paddingBottom: 40 },
-  messageBubble: { maxWidth: '85%', padding: 15, borderRadius: 22 },
-  userBubble: {
-    alignSelf: 'flex-end',
-    backgroundColor: '#004346',
-    borderBottomRightRadius: 4,
-  },
-  aiBubble: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#fff',
-    borderBottomLeftRadius: 4,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  messageText: { fontSize: 16, lineHeight: 22 },
-  userText: { color: '#fff' },
-  aiText: { color: '#004346' },
-  inputArea: {
-    padding: 20,
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.05)',
-  },
-  typingIndicator: {
-    fontSize: 12,
+  statusText: {
+    fontSize: 10,
+    fontWeight: '700',
     color: '#004346',
     opacity: 0.5,
-    marginBottom: 8,
-    fontStyle: 'italic',
+    textTransform: 'uppercase',
   },
-  inputWrapper: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+
+  messageList: { paddingHorizontal: 20, paddingBottom: 20 },
+  messageWrapper: {
+    flexDirection: 'row',
+    marginBottom: 18,
+    alignItems: 'flex-end',
+  },
+  userWrapper: { justifyContent: 'flex-end' },
+  aiWrapper: { justifyContent: 'flex-start' },
+
+  avatarContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#004346',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.5)',
+    shadowColor: '#004346',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+  },
+  miniLogo: { width: 30, height: 30, resizeMode: 'contain' },
+
+  bubble: {
+    maxWidth: '78%',
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 25,
+  },
+  aiBubble: {
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    borderBottomLeftRadius: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.8)',
+  },
+  userBubble: { backgroundColor: '#004346', borderBottomRightRadius: 5 },
+  messageText: { fontSize: 15, lineHeight: 22 },
+  aiText: { color: '#004346', fontWeight: '500' },
+  userText: { color: '#fff', fontWeight: '500' },
+
+  inputSection: {
+    paddingHorizontal: 20,
+    paddingBottom: Platform.OS === 'ios' ? 10 : 20,
+  },
+  typingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    marginLeft: 5,
+  },
+  typingText: {
+    fontSize: 12,
+    color: '#004346',
+    opacity: 0.6,
+    fontWeight: '600',
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderRadius: 30,
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
+  },
   textInput: {
     flex: 1,
-    backgroundColor: '#F0F7F7',
-    borderRadius: 25,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    maxHeight: 100,
-    color: '#004346',
+    paddingTop: 10,
+    paddingBottom: 10,
+    paddingHorizontal: 10,
     fontSize: 16,
+    color: '#004346',
+    maxHeight: 100,
   },
   sendBtn: {
     backgroundColor: '#004346',
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  sendBtnDisabled: { opacity: 0.3 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  iconBtn: { padding: 5 },
 });
 
 export default ChatOverlay;
