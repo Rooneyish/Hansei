@@ -270,6 +270,17 @@ async function getAllUserSessions(userId) {
   return result.rows;
 }
 
+async function deleteSession(session_id, user_id) {
+  const query = `DELETE FROM chat_sessions WHERE session_id = $1 AND user_id = $2`;
+  try {
+    const result = await pool.query(query, [session_id, user_id]);
+    return result.rowCount > 0;
+  } catch (err) {
+    console.error("Error while deleting session.", err.stack);
+    throw err;
+  }
+}
+
 module.exports = {
   registerUser,
   findUserByUsername,
@@ -290,4 +301,5 @@ module.exports = {
   endChatSession,
   saveChatMessage,
   getAllUserSessions,
+  deleteSession,
 };

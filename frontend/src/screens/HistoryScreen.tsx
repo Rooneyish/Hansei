@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Image,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
@@ -57,6 +58,25 @@ const HistoryScreen = ({
     fetchData();
   }, [fetchData]);
 
+  const handleDeleteSession = id => {
+    Alert.alert('Delete Conversation', 'Are you sure?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await apiClient.delete(`/chat/sessions/${id}`);
+
+            setSessions(prev => prev.filter(session => session.id !== id));
+          } catch (err) {
+            Alert.alert('Error', 'Could not delete.');
+          }
+        },
+      },
+    ]);
+  };
+
   const formatDate = dateString => {
     if (!dateString) return '';
     return new Date(dateString).toLocaleDateString(undefined, {
@@ -67,12 +87,12 @@ const HistoryScreen = ({
   };
 
   const renderChatItem = ({ item }) => (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => onSelectChat(item.id)}
-      activeOpacity={0.7}
-    >
-      <View style={styles.cardContent}>
+    <View style={styles.card}>
+      <TouchableOpacity
+        style={styles.cardMainAction}
+        onPress={() => onSelectChat(item.id)}
+        activeOpacity={0.7}
+      >
         <View style={styles.iconContainer}>
           <MaterialIcons name="chat-bubble" size={22} color="#004346" />
         </View>
@@ -82,13 +102,25 @@ const HistoryScreen = ({
             {item.preview_text || 'Reflective Session'}
           </Text>
         </View>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.deleteButton}
+        onPress={() => handleDeleteSession(item.id)}
+      >
         <MaterialIcons
-          name="chevron-right"
-          size={24}
-          color="rgba(0, 67, 70, 0.3)"
+          name="delete-outline"
+          size={22}
+          color="rgba( 217, 83, 79, 0.8)"
         />
-      </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
+
+      <MaterialIcons
+        name="chevron-right"
+        size={24}
+        color="rgba(0, 67, 70, 0.2)"
+      />
+    </View>
   );
 
   const renderActivityItem = ({ item }) => (
@@ -277,6 +309,13 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.6)',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  cardMainAction: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   cardContent: { flexDirection: 'row', alignItems: 'center' },
   iconContainer: {
