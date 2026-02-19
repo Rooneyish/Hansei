@@ -25,6 +25,9 @@ app.use("/api", require("./routes/userRoutes"));
 // Chat Bot routes (Chat)
 app.use("/api", require("./routes/chatRoutes"));
 
+// History routes (Chat History, Activity History)
+app.use("/api", require("./routes/historyRoutes"))
+
 
 app.listen(PORT, HOST, () => {
   console.log(`Server is running on http://${HOST}:${PORT}`);
