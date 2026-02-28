@@ -1,7 +1,5 @@
-# src/utils.py
 import re
 
-# Replace this list with the exact 27 emotions from your GoEmotions dataset
 EMOTIONS = [
     "admiration", "amusement", "anger", "annoyance", "approval", "caring", 
     "confusion", "curiosity", "desire", "disappointment", "disapproval", 
