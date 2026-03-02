@@ -1,5 +1,7 @@
 import torch
 import numpy as np
+import os
+import logging
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from transformers import (RobertaTokenizer, AutoModelForCausalLM, AutoTokenizer, pipeline, BitsAndBytesConfig)
@@ -12,31 +14,35 @@ from langchain_core.output_parsers import StrOutputParser
 from src.model import FineTuneRoBERTa
 from src.utils import clean_text, EMOTIONS, get_mood_details
 
-app = FastAPI(title="Hansei AI Engine: Emotion & Chat")
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+app = FastAPI(title="Hansei AI Engine")
 
 emotion_model = None
 emotion_tokenizer = None
 qwen_model = None
+qwen_tokenizer = None
 vectorstore = None
+llm = None
+rag_chain = None
 
-DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-print(f"Device: {DEVICE}")
-
-
+GPU_DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+CPU_DEVICE = "cpu"
 
 try:
-    emotion_tokenizer = RobertaTokenizer.from_pretrained("roberta-base")
+    emotion_tokenizer = RobertaTokenizer.from_pretrained("FacebookAI/roberta-base")
     emotion_model = FineTuneRoBERTa(num_labels=len(EMOTIONS))
-    emotion_model.load_state_dict(torch.load("fine_tuned_roberta.pt", map_location=DEVICE))
-    emotion_model.to(DEVICE)
-    emotion_model.eval()
-    print("Emotion Detection Model: Loaded")
+    if os.path.exists("fine_tuned_roberta.pt"):
+        emotion_model.load_state_dict(torch.load("fine_tuned_roberta.pt", map_location=CPU_DEVICE))
+        emotion_model.to(CPU_DEVICE)
+        emotion_model.eval()
+        print("Emotion Detection Model: Loaded on CPU")
 except Exception as e:
-    print(f"Error Loading Emotion Model: {e}")   
+    print(f"Error Loading Emotion Model: {e}")
 
 try:
     qwen_id = "Qwen/Qwen2.5-7B-Instruct"
-
     bnb_config = BitsAndBytesConfig(
         load_in_4bit=True,
         bnb_4bit_use_double_quant=True,
@@ -46,102 +52,108 @@ try:
 
     qwen_tokenizer = AutoTokenizer.from_pretrained(qwen_id)
     qwen_model = AutoModelForCausalLM.from_pretrained(
-        qwen_id, 
-        quantization_config=bnb_config,
-        device_map="auto",
-        trust_remote_code=True
+        qwen_id, quantization_config=bnb_config, device_map="auto", trust_remote_code=True
     )
 
     qwen_pipe = pipeline(
         "text-generation", 
         model=qwen_model, 
         tokenizer=qwen_tokenizer, 
-        max_new_tokens=256,      
+        max_new_tokens=150,      
         temperature=0.7, 
-        repetition_penalty=1,  
+        repetition_penalty=1.1,  
         do_sample=True,
+        return_full_text=False,
         eos_token_id=qwen_tokenizer.eos_token_id,
         pad_token_id=qwen_tokenizer.pad_token_id,
     )
     llm = HuggingFacePipeline(pipeline=qwen_pipe)
-    print('Qwen LLM Ready')
+    print('Qwen LLM: Ready on GPU')
 except Exception as e:
-    print(f'Error loading Qwen LLM')
+    print(f'Error loading Qwen LLM: {e}')
 
 try:
-    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    embeddings = HuggingFaceEmbeddings(
+        model_name="nomic-ai/nomic-embed-text-v1",
+        model_kwargs={'trust_remote_code': True, 'device': CPU_DEVICE}
+    )
     qdrant_client = QdrantClient(url="http://localhost:6333")
     vectorstore = QdrantVectorStore(
-        client=qdrant_client, 
-        collection_name="hansei_kb", 
-        embedding=embeddings         
+        client=qdrant_client, collection_name="hansei_kb", embedding=embeddings         
     )
-    print('Qdrant Connection Successful')
+    print('Qdrant Connection: Successful')
 except Exception as e:
     print(f"Error connecting to Qdrant: {e}")
-    vectorstore=None
 
 system_template = """
-You are 'Hansei', a warm, empathetic, and supportive mental well-being friend.
+<|im_start|>system
+You are 'Hansei', a supportive friend inspired by the Japanese philosophy of self-reflection.
+Your goal is to help the user manage their emotions in the moment using the provided 'CBT Context'.
 
-CORE MISSION:
-Your goal is to help the user manage their emotions in the moment using the provided CBT Context. 
-DO NOT simply tell them to see a doctor or therapist unless they are in a life-threatening crisis. 
-Instead, guide them through a small CBT thought reframe or a comforting activity based on the context.
+IMPORTANT RULES:
+1. GREETINGS: If the user says 'Hi', 'Hello', or 'Hey', ONLY say hello back warmly. Do NOT give CBT advice or use the context.
+2. IDENTITY & CONTEXT: The provided 'CBT Context' is a REFERENCE LIBRARY of examples, not the user's life.
+    - NEVER assume the user has a husband, boyfriend, or specific job unless they mention it first.
+    - Use the 'CBT Context' only for the TYPE of advice or the exercise it suggests.
+    - If the context mentions "your husband" but the user is talking about "work," ignore the "husband" part and only use the "work" logic.
+    - If the user just stated a belief or a feeling, do NOT ask "does that resonate?" or "how does that feel?" They just told you! Instead, acknowledge it as a fact (e.g., "That perfectionism is a heavy burden to carry").
+    - If the user says they are "going to" do something, wish them luck and tell them you're here when they get back. Do NOT ask them how it felt yet, as they haven't done it!
+3. ROLE-PLAY: Speak ONLY as Hansei. Never continue the conversation as 'Assistant', 'Human', or 'User'.
+4. NO DOCTOR TALK: Avoid clinical jargon. Instead of "Catastrophizing," say "expecting the worst." Avoid "I recommend."
+5. BREVITY: Keep your response to ONE paragraph and under 4 sentences.
 
-CONVERSATION STYLE:
-1. Validate first: "I hear you, being alone can feel really heavy sometimes."
-2. Personalize: Use the context to suggest a small shift in thinking or a gentle activity.
-3. Be brief: Keep it under 3-4 sentences.
-4. Friend-mode: Talk like a peer, not a clinical manual.
+HOW TO USE THE CONTEXT:
+- If the Context is empty or irrelevant, just have a normal friendly chat focusing on the user's words.
+- SUPPORT ADVICE: Translate professional tips into warm, friendly suggestions.
+- CBT EXERCISE PLAN: Pick ONE small step to try together.
+- CORE BELIEFS: Gently ask if a specific belief (like 'feeling unlovable') resonates with them.
 
-RULES:
-1. If the user says a simple greeting (hi, hello, hey), ignore the context and just say hi back warmly.
-2. Use the 'Context' to provide supportive CBT-based advice when the user shares a problem.
-3. Use a friendly, casual tone. Do not act like a clinical doctor.
-4. Keep your response to ONE paragraph (max 4 sentences).
-5. Stop writing as soon as you have answered the user.
-6. ONLY provide conversational, friendly responses.
-7. NEVER output Python code, variables, or technical placeholders like '{{user_input}}'.
-8. Use the Context only for inspiration on what to say next.
-9. If the Context contains technical code, IGNORE the code and focus on the emotions.
+ENDING THE CHAT:
+- Normally, end with a gentle question (e.g., "How does that sound to you?").
+- If the user says "Bye", "Thanks", or "I'm done", just wish them well without a question.<|im_end|>
 
-Always end your response with a gentle, open-ended question to keep the conversation going (e.g., 'What do you think might help you feel a bit more comfortable right now?').
-
+<|im_start|>user
 Context: {context}
-User: {question}
+History: {history}
+Message: {question}<|im_end|>
+<|im_start|>assistant
 Hansei:"""
 
 prompt = ChatPromptTemplate.from_template(system_template)
 
 def get_relevant_docs(question):
-    greetings = ["hi", "hello", "hey", "howdy", "greetings", "hi there", "whats up", "what's up", "how are you", "how r u"]
-    if question.lower().strip() in greetings:
-        return "No context needed for a simple greeting."
+    ignore_list = ["hi", "hello", "hey", "howdy", "whats up", "doing great", "doing well", "i am good", "i'm good"]
+    clean_q = question.lower().strip()
+    
+    if any(greet in clean_q for greet in ignore_list):
+        return "" 
     
     if vectorstore is not None:
         try:
-            docs = vectorstore.as_retriever(search_kwargs={"k": 2}).invoke(question)
-            return "\n\n".join(doc.page_content for doc in docs)
-        except Exception as e:
-            print(f"Retriever error: ", {e})
-            return "Knowledge base search failed"
-        return "Knowledge base unavailable"
+            results = vectorstore.similarity_search_with_score(f"search_query: {question}", k=2)
+            relevant_chunks = [res[0].page_content.replace("search_document: ", "") for res in results if res[1] > 0.65]
+            return "\n\n---\n\n".join(relevant_chunks)
+        except:
+            return ""
+    return ""
 
-if llm:
+if llm is not None:
     rag_chain = (
-        {"context": RunnableLambda(get_relevant_docs), "question": RunnablePassthrough()}
+        {
+            "context": RunnableLambda(lambda x: get_relevant_docs(x["question"])), 
+            "question": lambda x: x["question"],
+            "history": lambda x: x["history"]
+        }
         | prompt
         | llm
         | StrOutputParser()
     )
-else:
-    rag_chain = None
 class JournalRequest(BaseModel):
     text: str
 
 class ChatRequest(BaseModel):
     message: str
+    history: list = [] 
 
 @app.post("/analyze")
 async def analyze_journal(request: JournalRequest):
@@ -150,7 +162,7 @@ async def analyze_journal(request: JournalRequest):
             raise HTTPException(status_code=400, detail="Text cannot be empty")
         
         cleaned = clean_text(request.text)
-        inputs = emotion_tokenizer(cleaned, return_tensors="pt", truncation=True, padding='max_length', max_length=128).to(DEVICE)
+        inputs = emotion_tokenizer(cleaned, return_tensors="pt", truncation=True, padding='max_length', max_length=128).to(CPU_DEVICE)
         
         with torch.no_grad():
             logits = emotion_model(input_ids=inputs['input_ids'], attention_mask=inputs['attention_mask'])
@@ -173,27 +185,24 @@ async def analyze_journal(request: JournalRequest):
 
 @app.post("/chat")
 async def chat_with_hansei(request: ChatRequest):
+    if rag_chain is None: raise HTTPException(status_code=503)
     try:
-        if not request.message.strip():
-            raise HTTPException(status_code=400, detail="Message cannot be empty")
-
-        response_text = rag_chain.invoke(request.message)
+        formatted_history = "\n".join([f"{'User' if m['role']=='user' else 'Hansei'}: {m['content']}" for m in request.history[-4:]])
         
-        if "Hansei:" in response_text:
-            response_text = response_text.split("Hansei:")[-1]
+        raw_response = rag_chain.invoke({"question": request.message, "history": formatted_history})
+        
+        response_text = raw_response.split("Hansei:")[-1].strip()
+        
+        for pattern in ["User:", "Human:", "Assistant:", "Context:", "(Note:", "---", "<|im_end|>", "Note:"]:
+            response_text = response_text.split(pattern)[0]
             
-        stop_sequences = ["User:", "Assistant:", "if __name__", "import ", "{user_input}", "print("]
-        for seq in stop_sequences:
-            response_text = response_text.split(seq)[0]
-        response_text = response_text.replace("---", "").strip()
-
-        return {"reply": response_text}
+        return {"reply": response_text.strip()}
     except torch.cuda.OutOfMemoryError:
-        print("GPU Out of Memory Error during chat!")
-        raise HTTPException(status_code=507, detail="AI is currently overwhelmed. Please try again in a moment.")
+        torch.cuda.empty_cache()
+        raise HTTPException(status_code=507, detail="AI Overwhelmed")
     except Exception as e:
-        print(f"Chat Error: {e}")
-        raise HTTPException(status_code=500, detail="An error occurred while generating a response.")
+        logger.error(f"Chat Error: {e}")
+        raise HTTPException(status_code=500)
 
 if __name__ == "__main__":
     import uvicorn
