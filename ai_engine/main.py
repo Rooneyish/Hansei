@@ -2,90 +2,95 @@ import torch
 import numpy as np
 import os
 import logging
-from fastapi import FastAPI, HTTPException
+import threading
+import asyncio
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from transformers import (RobertaTokenizer, AutoModelForCausalLM, AutoTokenizer, pipeline, BitsAndBytesConfig)
-from langchain_huggingface import HuggingFacePipeline, HuggingFaceEmbeddings
+from typing import List, Optional
+from transformers import (
+    RobertaTokenizer, 
+    AutoModelForCausalLM, 
+    AutoTokenizer, 
+    BitsAndBytesConfig, 
+    TextIteratorStreamer
+)
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.runnables import RunnablePassthrough, RunnableLambda
-from langchain_core.output_parsers import StrOutputParser
+
 from src.model import FineTuneRoBERTa
 from src.utils import clean_text, EMOTIONS, get_mood_details
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-app = FastAPI(title="Hansei AI Engine")
-
-emotion_model = None
-emotion_tokenizer = None
-qwen_model = None
-qwen_tokenizer = None
-vectorstore = None
-llm = None
-rag_chain = None
+logger = logging.getLogger("hansei_engine")
 
 GPU_DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 CPU_DEVICE = "cpu"
 
-try:
-    emotion_tokenizer = RobertaTokenizer.from_pretrained("FacebookAI/roberta-base")
-    emotion_model = FineTuneRoBERTa(num_labels=len(EMOTIONS))
-    if os.path.exists("fine_tuned_roberta.pt"):
-        emotion_model.load_state_dict(torch.load("fine_tuned_roberta.pt", map_location=CPU_DEVICE))
-        emotion_model.to(CPU_DEVICE)
-        emotion_model.eval()
-        print("Emotion Detection Model: Loaded on CPU")
-except Exception as e:
-    print(f"Error Loading Emotion Model: {e}")
+class HanseiState:
+    def __init__(self):
+        self.emotion_model = None
+        self.emotion_tokenizer = None
+        self.qwen_model = None
+        self.qwen_tokenizer = None
+        self.vectorstore = None
 
-try:
-    qwen_id = "Qwen/Qwen2.5-7B-Instruct"
-    bnb_config = BitsAndBytesConfig(
-        load_in_4bit=True,
-        bnb_4bit_use_double_quant=True,
-        bnb_4bit_quant_type="nf4",
-        bnb_4bit_compute_dtype=torch.bfloat16
-    )
+state = HanseiState()
 
-    qwen_tokenizer = AutoTokenizer.from_pretrained(qwen_id)
-    qwen_model = AutoModelForCausalLM.from_pretrained(
-        qwen_id, quantization_config=bnb_config, device_map="auto", trust_remote_code=True
-    )
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    try:
+        state.emotion_tokenizer = RobertaTokenizer.from_pretrained("FacebookAI/roberta-base")
+        state.emotion_model = FineTuneRoBERTa(num_labels=len(EMOTIONS))
+        if os.path.exists("fine_tuned_roberta.pt"):
+            state.emotion_model.load_state_dict(torch.load("fine_tuned_roberta.pt", map_location=CPU_DEVICE))
+            state.emotion_model.to(CPU_DEVICE).eval()
+            logger.info("✅ Emotion Detection Model loaded on CPU")
+    except Exception as e:
+        logger.error(f"❌ Error Loading Emotion Model: {e}")
 
-    qwen_pipe = pipeline(
-        "text-generation", 
-        model=qwen_model, 
-        tokenizer=qwen_tokenizer, 
-        max_new_tokens=150,      
-        temperature=0.7, 
-        repetition_penalty=1.1,  
-        do_sample=True,
-        return_full_text=False,
-        eos_token_id=qwen_tokenizer.eos_token_id,
-        pad_token_id=qwen_tokenizer.pad_token_id,
-    )
-    llm = HuggingFacePipeline(pipeline=qwen_pipe)
-    print('Qwen LLM: Ready on GPU')
-except Exception as e:
-    print(f'Error loading Qwen LLM: {e}')
+    try:
+        qwen_id = "Qwen/Qwen2.5-7B-Instruct"
+        bnb_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_compute_dtype=torch.bfloat16
+        )
+        state.qwen_tokenizer = AutoTokenizer.from_pretrained(qwen_id)
+        state.qwen_model = AutoModelForCausalLM.from_pretrained(
+            qwen_id, 
+            quantization_config=bnb_config, 
+            device_map="auto", 
+            trust_remote_code=True
+        )
+        logger.info("✅ Qwen LLM loaded on GPU")
+    except Exception as e:
+        logger.error(f"❌ Error loading Qwen LLM: {e}")
 
-try:
-    embeddings = HuggingFaceEmbeddings(
-        model_name="nomic-ai/nomic-embed-text-v1",
-        model_kwargs={'trust_remote_code': True, 'device': CPU_DEVICE}
-    )
-    qdrant_client = QdrantClient(url="http://localhost:6333")
-    vectorstore = QdrantVectorStore(
-        client=qdrant_client, collection_name="hansei_kb", embedding=embeddings         
-    )
-    print('Qdrant Connection: Successful')
-except Exception as e:
-    print(f"Error connecting to Qdrant: {e}")
+    try:
+        embeddings = HuggingFaceEmbeddings(
+            model_name="nomic-ai/nomic-embed-text-v1",
+            model_kwargs={'trust_remote_code': True, 'device': CPU_DEVICE}
+        )
+        client = QdrantClient(url="http://localhost:6333")
+        state.vectorstore = QdrantVectorStore(
+            client=client, 
+            collection_name="hansei_kb", 
+            embedding=embeddings         
+        )
+        logger.info("✅ Qdrant Connection: Successful")
+    except Exception as e:
+        logger.error(f"❌ Qdrant Error: {e}")
 
-system_template = """
+    yield
+    logger.info("Shutting down Hansei Engine...")
+
+app = FastAPI(title="Hansei AI Engine", lifespan=lifespan)
+
+SYSTEM_TEMPLATE = """
 <|im_start|>system
 You are 'Hansei', a supportive friend inspired by the Japanese philosophy of self-reflection.
 Your goal is to help the user manage their emotions in the moment using the provided 'CBT Context'.
@@ -119,53 +124,78 @@ Message: {question}<|im_end|>
 <|im_start|>assistant
 Hansei:"""
 
-prompt = ChatPromptTemplate.from_template(system_template)
-
-def get_relevant_docs(question):
-    ignore_list = ["hi", "hello", "hey", "howdy", "whats up", "doing great", "doing well", "i am good", "i'm good"]
-    clean_q = question.lower().strip()
+def get_relevant_docs(question: str):
+    ignore_list = ["hi", "hello", "hey", "howdy", "whats up", "i am good", "i'm good"]
+    if any(greet in question.lower().strip() for greet in ignore_list):
+        return "None (Casual Greeting)"
     
-    if any(greet in clean_q for greet in ignore_list):
-        return "" 
-    
-    if vectorstore is not None:
+    if state.vectorstore:
         try:
-            results = vectorstore.similarity_search_with_score(f"search_query: {question}", k=2)
+            results = state.vectorstore.similarity_search_with_score(f"search_query: {question}", k=2)
             relevant_chunks = [res[0].page_content.replace("search_document: ", "") for res in results if res[1] > 0.65]
-            return "\n\n---\n\n".join(relevant_chunks)
-        except:
-            return ""
-    return ""
+            return "\n\n".join(relevant_chunks) if relevant_chunks else "No specific context found."
+        except Exception as e:
+            logger.error(f"Retriever error: {e}")
+    return "Not available."
 
-if llm is not None:
-    rag_chain = (
-        {
-            "context": RunnableLambda(lambda x: get_relevant_docs(x["question"])), 
-            "question": lambda x: x["question"],
-            "history": lambda x: x["history"]
-        }
-        | prompt
-        | llm
-        | StrOutputParser()
+async def generate_stream(message: str, history_str: str, context: str):
+    full_prompt = SYSTEM_TEMPLATE.format(
+        context=context,
+        history=history_str,
+        question=message
     )
+    
+    inputs = state.qwen_tokenizer([full_prompt], return_tensors="pt").to(GPU_DEVICE)
+    streamer = TextIteratorStreamer(state.qwen_tokenizer, skip_prompt=True, skip_special_tokens=True)
+    
+    generation_kwargs = dict(
+        **inputs,
+        streamer=streamer,
+        max_new_tokens=200,
+        temperature=0.7,
+        do_sample=True,
+        repetition_penalty=1.1,
+        eos_token_id=state.qwen_tokenizer.eos_token_id,
+        pad_token_id=state.qwen_tokenizer.pad_token_id,
+    )
+
+    thread = threading.Thread(target=state.qwen_model.generate, kwargs=generation_kwargs)
+    thread.start()
+
+    stop_tokens = ["User:", "Human:", "Context:", "<|im_end|>", "Hansei:"]
+    
+    for new_text in streamer:
+        yield new_text
+        await asyncio.sleep(0.01)
+
 class JournalRequest(BaseModel):
     text: str
 
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
 class ChatRequest(BaseModel):
     message: str
-    history: list = [] 
+    history: List[ChatMessage] = []
 
 @app.post("/analyze")
 async def analyze_journal(request: JournalRequest):
-    try:
-        if not request.text.strip():
-            raise HTTPException(status_code=400, detail="Text cannot be empty")
+    if not state.emotion_model:
+        raise HTTPException(status_code=503, detail="Emotion model not loaded")
         
+    try:
         cleaned = clean_text(request.text)
-        inputs = emotion_tokenizer(cleaned, return_tensors="pt", truncation=True, padding='max_length', max_length=128).to(CPU_DEVICE)
+        inputs = state.emotion_tokenizer(
+            cleaned, 
+            return_tensors="pt", 
+            truncation=True, 
+            padding='max_length', 
+            max_length=128
+        ).to(CPU_DEVICE)
         
         with torch.no_grad():
-            logits = emotion_model(input_ids=inputs['input_ids'], attention_mask=inputs['attention_mask'])
+            logits = state.emotion_model(input_ids=inputs['input_ids'], attention_mask=inputs['attention_mask'])
             probs = torch.sigmoid(logits).cpu().numpy()[0]
         
         max_idx = np.argmax(probs)
@@ -180,29 +210,34 @@ async def analyze_journal(request: JournalRequest):
             "status_text": f"{predicted_emotion.capitalize()} {emoji}"
         }
     except Exception as e:
-        print(f"Emotion Detection Error: {e}")
+        logger.error(f"Emotion Detection Error: {e}")
         raise HTTPException(status_code=500, detail="Error during emotion detection.")
 
 @app.post("/chat")
 async def chat_with_hansei(request: ChatRequest):
-    if rag_chain is None: raise HTTPException(status_code=503)
+    if not state.qwen_model:
+        raise HTTPException(status_code=503, detail="Hansei is still waking up.")
+
     try:
-        formatted_history = "\n".join([f"{'User' if m['role']=='user' else 'Hansei'}: {m['content']}" for m in request.history[-4:]])
-        
-        raw_response = rag_chain.invoke({"question": request.message, "history": formatted_history})
-        
-        response_text = raw_response.split("Hansei:")[-1].strip()
-        
-        for pattern in ["User:", "Human:", "Assistant:", "Context:", "(Note:", "---", "<|im_end|>", "Note:"]:
-            response_text = response_text.split(pattern)[0]
-            
-        return {"reply": response_text.strip()}
+        context = get_relevant_docs(request.message)
+
+        formatted_history = ""
+        for m in request.history[-4:]: 
+            role = "User" if m.role == 'user' else "Hansei"
+            formatted_history += f"{role}: {m.content}\n"
+
+        return StreamingResponse(
+            generate_stream(request.message, formatted_history, context),
+            media_type="text/plain"
+        )
+
     except torch.cuda.OutOfMemoryError:
         torch.cuda.empty_cache()
-        raise HTTPException(status_code=507, detail="AI Overwhelmed")
+        logger.error("CUDA Out of Memory")
+        raise HTTPException(status_code=507, detail="AI Overwhelmed. Please try a shorter message.")
     except Exception as e:
         logger.error(f"Chat Error: {e}")
-        raise HTTPException(status_code=500)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 if __name__ == "__main__":
     import uvicorn

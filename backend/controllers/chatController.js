@@ -7,7 +7,6 @@ async function handleChat(req, res) {
   try {
     const userId = req.user.id;
     const { message, session_id } = req.body;
-
     let sessionId = session_id;
 
     if (!message) {
@@ -21,24 +20,60 @@ async function handleChat(req, res) {
         : (await queries.startNewChatSession(userId)).session_id;
     }
 
+    const rawRows = await queries.getMessagesBySessionId(sessionId);
+    const history = rawRows.slice(-6).map((row) => ({
+      role: row.role === "user" ? "user" : "ai",
+      content: decrypt(row.encrypted_text, KEY),
+    }));
+
     const encryptedUserText = encrypt(message, KEY);
     await queries.saveChatMessage(sessionId, "user", encryptedUserText);
 
-    const aiResponse = await axios.post("http://127.0.0.1:8000/chat", 
-      {message}, {timeout: 60000});
-    const reply = aiResponse.data.reply;
+    const aiResponse = await axios({
+      method: "post",
+      url: "http://127.0.0.1:8000/chat",
+      data: { message, history },
+      responseType: "stream",
+      timeout: 30000,
+    });
 
-    const encryptedAiText = encrypt(reply, KEY);
-    await queries.saveChatMessage(sessionId, "ai", encryptedAiText);
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Session-Id", sessionId);
+    res.setHeader("Access-Control-Expose-Headers", "X-Session-Id"); // Add this line
 
-    return res.json({ reply, session_id: sessionId });
+    let fullAiReply = "";
+
+    aiResponse.data.on("data", (chunk) => {
+      const text = chunk.toString();
+      fullAiReply += text;
+      res.write(text);
+    });
+
+    aiResponse.data.on("end", async () => {
+      try {
+        const encryptedAiText = encrypt(fullAiReply, KEY);
+        await queries.saveChatMessage(sessionId, "ai", encryptedAiText);
+      } catch (saveErr) {
+        console.error("Error saving AI response to DB:", saveErr);
+      }
+      res.end();
+    });
+
+    req.on("close", () => {
+      aiResponse.data.destroy();
+    });
   } catch (err) {
     console.error("Chat Error:", err.message);
-
-    res.status(500).json({
-      reply:
-        "I'm having a little trouble connecting to my thoughts right now. Can you try again in a second?",
-    });
+    if (!res.headersSent) {
+      res.status(500).json({
+        reply:
+          "I'm having a little trouble connecting to my thoughts. Try again?",
+      });
+    } else {
+      res.end();
+    }
   }
 }
 
@@ -100,5 +135,5 @@ module.exports = {
   handleChat,
   handleEndSession,
   listSessions,
-  startNewSession
+  startNewSession,
 };

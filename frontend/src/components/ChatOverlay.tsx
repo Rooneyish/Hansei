@@ -18,6 +18,8 @@ import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import GradientBackground from './GradientBackground';
 import apiClient from '../api/client';
+import { TextDecoder } from 'text-encoding';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const BreathingAvatar = () => {
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -110,35 +112,74 @@ const ChatOverlay = ({ visible, onClose, sessionId = null }) => {
     if (!inputText.trim() || !activeSessionId) return;
 
     const userMsgText = inputText.trim();
+    const userMsgId = `user-${Date.now()}`;
+    const aiMsgId = `ai-${Date.now()}`; 
+
     setMessages(prev => [
       ...prev,
-      { id: Date.now().toString(), text: userMsgText, sender: 'user' },
+      { id: userMsgId, text: userMsgText, sender: 'user' },
+      { id: aiMsgId, text: '', sender: 'ai' },
     ]);
+
     setInputText('');
     setIsTyping(true);
 
     try {
-      const response = await apiClient.post('/chat', {
-        message: userMsgText,
-        session_id: activeSessionId,
+      const token = await AsyncStorage.getItem('userToken');
+
+      const response = await fetch('http://192.168.2.71:3000/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          message: userMsgText,
+          session_id: activeSessionId,
+        }),
+        reactNative: { textStreaming: true },
       });
-      setMessages(prev => [
-        ...prev,
-        {
-          id: (Date.now() + 1).toString(),
-          text: response.data.reply,
-          sender: 'ai',
-        },
-      ]);
+
+      if (!response.ok) throw new Error('Connection failed');
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let accumulatedText = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+
+        if (done) {
+          const finalChunk = decoder.decode(); 
+          if (finalChunk) {
+            accumulatedText += finalChunk;
+            setMessages(prev =>
+              prev.map(msg =>
+                msg.id === aiMsgId ? { ...msg, text: accumulatedText } : msg,
+              ),
+            );
+          }
+          break;
+        }
+
+        const chunk = decoder.decode(value, { stream: true });
+        accumulatedText += chunk;
+
+        setMessages(prev =>
+          prev.map(msg =>
+            msg.id === aiMsgId ? { ...msg, text: accumulatedText } : msg,
+          ),
+        );
+      }
     } catch (error) {
-      setMessages(prev => [
-        ...prev,
-        {
-          id: 'err',
-          text: "I'm having a quiet moment. Let's try again soon.",
-          sender: 'ai',
-        },
-      ]);
+      console.error('Chat Error:', error);
+      setMessages(prev =>
+        prev.map(msg =>
+          msg.id === aiMsgId
+            ? { ...msg, text: "I lost my train of thought. Let's try again." }
+            : msg,
+        ),
+      );
     } finally {
       setIsTyping(false);
     }
