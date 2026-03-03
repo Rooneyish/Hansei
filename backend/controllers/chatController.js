@@ -41,7 +41,7 @@ async function handleChat(req, res) {
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
     res.setHeader("X-Session-Id", sessionId);
-    res.setHeader("Access-Control-Expose-Headers", "X-Session-Id"); // Add this line
+    res.setHeader("Access-Control-Expose-Headers", "X-Session-Id"); 
 
     let fullAiReply = "";
 
