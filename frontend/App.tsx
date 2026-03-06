@@ -8,6 +8,7 @@ import UserProfileScreen from './src/screens/UserProfileScreen';
 import EditProfileScreen from './src/screens/EditProfileScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
 import ChatOverlay from './src/components/ChatOverlay';
+import MusicScreen from './src/screens/MusicScreen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const App = () => {
@@ -20,6 +21,7 @@ const App = () => {
     | 'insights'
     | 'editProfile'
     | 'history'
+    | 'music'
   >('welcome');
 
   const [isChatVisible, setIsChatVisible] = useState(false);
@@ -40,7 +42,8 @@ const App = () => {
         | 'profile'
         | 'insights'
         | 'editProfile'
-        | 'history',
+        | 'history'
+        | 'music',
     ) => {
       if (screenName === currentScreen) return;
 
@@ -130,6 +133,7 @@ const App = () => {
             onNavigateHome={() => navigateTo('home')}
             onNavigateInsights={() => navigateTo('insights')}
             onNavigateChatHistory={() => navigateTo('history')}
+            onNavigateMusic={() => navigateTo('music')}
             onPressAI={() => {
               setSelectedSessionId(null);
               setIsChatVisible(true);
@@ -183,6 +187,12 @@ const App = () => {
             }}
           />
         );
+      case 'music':
+        return (
+          <MusicScreen
+            onBack={() => navigateTo('home')}
+          />
+        );
       default:
         return <WelcomeScreen />;
     }
@@ -204,7 +214,7 @@ const App = () => {
         visible={isChatVisible}
         onClose={() => {
           setIsChatVisible(false);
-          setSelectedSessionId(null); // Reset when closing
+          setSelectedSessionId(null); 
         }}
         sessionId={selectedSessionId}
       />

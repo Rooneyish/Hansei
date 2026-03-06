@@ -24,6 +24,7 @@ const HomeScreen = ({
   onNavigateInsights,
   onNavigateProfile,
   onNavigateChatHistory,
+  onNavigateMusic,
 }) => {
   const [streak, setStreak] = useState(null);
   const [mood, setMood] = useState('Reflective ✨');
@@ -207,7 +208,20 @@ const HomeScreen = ({
                 { name: 'Quests', icon: 'stars' },
                 { name: 'Zen Room', icon: 'self-improvement' },
               ].map((item, idx) => (
-                <TouchableOpacity key={idx} style={styles.activityCard}>
+                <TouchableOpacity
+                  key={idx}
+                  style={styles.activityCard}
+                  onPress={() => {
+                    if (item.name === 'Music') {
+                      onNavigateMusic();
+                    } else {
+                      Alert.alert(
+                        'Coming Soon',
+                        `${item.name} is under development.`,
+                      );
+                    }
+                  }}
+                >
                   <MaterialIcons name={item.icon} size={32} color="#004346" />
                   <Text style={styles.activityLabel}>{item.name}</Text>
                 </TouchableOpacity>
@@ -225,7 +239,8 @@ const HomeScreen = ({
         onNavigateProfile={onNavigateProfile}
         onNavigateInsights={onNavigateInsights}
         onNavigateChatHistory={onNavigateChatHistory}
-        onPressAI={()=>setIsChatVisible(true)}
+        onPressAI={() => setIsChatVisible(true)}
+        onNavigateMusic={onNavigateMusic}
       />
     </View>
   );
