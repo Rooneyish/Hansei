@@ -10,6 +10,7 @@ import HistoryScreen from './src/screens/HistoryScreen';
 import ChatOverlay from './src/components/ChatOverlay';
 import MusicScreen from './src/screens/MusicScreen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { MusicProvider } from './src/context/MusicContext';
 
 const App = () => {
   const [currentScreen, setCurrentScreen] = useState<
@@ -188,37 +189,35 @@ const App = () => {
           />
         );
       case 'music':
-        return (
-          <MusicScreen
-            onBack={() => navigateTo('home')}
-          />
-        );
+        return <MusicScreen onBack={() => navigateTo('home')} />;
       default:
         return <WelcomeScreen />;
     }
   };
 
   return (
-    <View style={styles.container}>
-      <Animated.View
-        style={{
-          flex: 1,
-          opacity: fadeValue,
-          transform: [{ scale: scaleValue }],
-        }}
-      >
-        {renderScreen()}
-      </Animated.View>
+    <MusicProvider>
+      <View style={styles.container}>
+        <Animated.View
+          style={{
+            flex: 1,
+            opacity: fadeValue,
+            transform: [{ scale: scaleValue }],
+          }}
+        >
+          {renderScreen()}
+        </Animated.View>
 
-      <ChatOverlay
-        visible={isChatVisible}
-        onClose={() => {
-          setIsChatVisible(false);
-          setSelectedSessionId(null); 
-        }}
-        sessionId={selectedSessionId}
-      />
-    </View>
+        <ChatOverlay
+          visible={isChatVisible}
+          onClose={() => {
+            setIsChatVisible(false);
+            setSelectedSessionId(null);
+          }}
+          sessionId={selectedSessionId}
+        />
+      </View>
+    </MusicProvider>
   );
 };
 

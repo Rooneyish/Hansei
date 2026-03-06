@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,90 +6,46 @@ import {
   FlatList,
   TouchableOpacity,
   Image,
-  // Dimensions,
   ActivityIndicator,
+  Modal,
+  Dimensions,
 } from 'react-native';
-import TrackPlayer, {
-  usePlaybackState,
-  State,
-  Capability,
-} from 'react-native-track-player';
+import Slider from '@react-native-community/slider';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import GradientBackground from '../components/GradientBackground';
-import ChatOverlay from '../components/ChatOverlay';
-import apiClient from '../api/client';
+import { useMusic } from '../context/MusicContext';
+
+const { width } = Dimensions.get('window');
 
 const MusicScreen = ({ onBack }) => {
-  const [playlist, setPlaylist] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [currentTrack, setCurrentTrack] = useState(null);
-  const [isChatVisible, setIsChatVisible] = useState(false);
+  const {
+    playlist,
+    loading,
+    currentTrack,
+    isPlaying,
+    position,
+    duration,
+    loopMode,
+    isShuffle,
+    handlePlayTrack,
+    togglePlayback,
+    handleNext,
+    handlePrevious,
+    seekTo,
+    setLoopMode,
+    setIsShuffle,
+  } = useMusic();
 
-  const playbackState = usePlaybackState();
-  const isPlaying =
-    playbackState === State.Playing ||
-    (typeof playbackState === 'object' &&
-      playbackState.state === State.Playing);
+  const [isFullPlayerVisible, setIsFullPlayerVisible] = useState(false);
 
-  useEffect(() => {
-    const setupPlayer = async () => {
-      try {
-        await TrackPlayer.setupPlayer();
-        await TrackPlayer.updateOptions({
-          capabilities: [
-            Capability.Play,
-            Capability.Pause,
-            Capability.SkipToNext,
-            Capability.SkipToPrevious,
-            Capability.Stop,
-          ],
-        });
-      } catch (e) {}
-    };
-    setupPlayer();
-  }, []);
-
-  useEffect(() => {
-    const fetchMusic = async () => {
-      try {
-        const response = await apiClient.get('/music/all');
-        setPlaylist(response.data);
-      } catch (err) {
-        console.error('Fetch error:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchMusic();
-  }, []);
-
-  const handlePlayTrack = async track => {
-    try {
-      await TrackPlayer.reset();
-      await TrackPlayer.add({
-        id: track.id.toString(),
-        url: track.url,
-        title: track.title,
-        artist: track.artist,
-        artwork: track.artwork,
-      });
-      await TrackPlayer.play();
-      setCurrentTrack(track);
-    } catch (error) {
-      console.error('Playback error:', error);
-    }
+  const formatTime = (secs: number) => {
+    const mins = Math.floor(secs / 60);
+    const s = Math.floor(secs % 60);
+    return `${mins}:${s < 10 ? '0' : ''}${s}`;
   };
 
-  const togglePlayback = async () => {
-    if (isPlaying) {
-      await TrackPlayer.pause();
-    } else {
-      await TrackPlayer.play();
-    }
-  };
-
-  const renderTrackItem = ({ item }) => (
+  const renderTrackItem = ({ item }: { item: any }) => (
     <TouchableOpacity
       style={[
         styles.trackCard,
@@ -118,7 +74,6 @@ const MusicScreen = ({ onBack }) => {
           </Text>
         </View>
       </View>
-      <MaterialIcons name="more-vert" size={24} color="rgba(0, 67, 70, 0.4)" />
     </TouchableOpacity>
   );
 
@@ -139,67 +94,129 @@ const MusicScreen = ({ onBack }) => {
             <ActivityIndicator size="large" color="#004346" />
           </View>
         ) : (
-          <>
-            <View style={styles.featuredCard}>
-              <Text style={styles.featuredLabel}>DAILY PICK</Text>
-              <Text style={styles.featuredTitle}>
-                {playlist[0]?.title || 'Zen Focus'}
-              </Text>
-              <Text style={styles.featuredSub}>
-                A curated soundscape for your Hansei practice.
-              </Text>
-              <TouchableOpacity
-                style={styles.playAllBtn}
-                onPress={() => playlist[0] && handlePlayTrack(playlist[0])}
-              >
-                <MaterialIcons
-                  name="play-circle-filled"
-                  size={60}
-                  color="#004346"
-                />
-              </TouchableOpacity>
-            </View>
-
-            <FlatList
-              data={playlist}
-              keyExtractor={item => item.id.toString()}
-              renderItem={renderTrackItem}
-              contentContainerStyle={styles.listContent}
-              showsVerticalScrollIndicator={false}
-            />
-          </>
+          <FlatList
+            data={playlist}
+            keyExtractor={item => item.id.toString()}
+            renderItem={renderTrackItem}
+            contentContainerStyle={styles.listContent}
+          />
         )}
 
         {currentTrack && (
-          <View style={styles.miniPlayer}>
+          <TouchableOpacity
+            style={styles.miniPlayer}
+            activeOpacity={0.9}
+            onPress={() => setIsFullPlayerVisible(true)}
+          >
+            <Image
+              source={{ uri: currentTrack.artwork }}
+              style={styles.miniArtwork}
+            />
             <View style={styles.playerInfo}>
-              <Image
-                source={{ uri: currentTrack.artwork }}
-                style={styles.miniArtwork}
-              />
               <Text style={styles.miniTrackTitle} numberOfLines={1}>
                 {currentTrack.title}
               </Text>
               <Text style={styles.miniArtist}>{currentTrack.artist}</Text>
             </View>
-            <View style={styles.playerControls}>
-              <TouchableOpacity onPress={togglePlayback}>
-                <MaterialIcons
-                  name={
-                    isPlaying ? 'pause-circle-filled' : 'play-circle-filled'
-                  }
-                  size={50}
-                  color="#004346"
-                />
-              </TouchableOpacity>
-            </View>
-          </View>
+            <TouchableOpacity onPress={togglePlayback}>
+              <MaterialIcons
+                name={isPlaying ? 'pause' : 'play-arrow'}
+                size={35}
+                color="#004346"
+              />
+            </TouchableOpacity>
+          </TouchableOpacity>
         )}
+
+        <Modal
+          visible={isFullPlayerVisible}
+          animationType="slide"
+          transparent={false}
+          onRequestClose={() => setIsFullPlayerVisible(false)}
+        >
+          <View style={styles.fullPlayerContainer}>
+            <GradientBackground />
+            <SafeAreaView style={{ flex: 1, paddingHorizontal: 30 }}>
+              <TouchableOpacity
+                onPress={() => setIsFullPlayerVisible(false)}
+                style={styles.closeBtn}
+              >
+                <MaterialIcons name="expand-more" size={40} color="#004346" />
+              </TouchableOpacity>
+
+              <Image
+                source={{ uri: currentTrack?.artwork }}
+                style={styles.fullArtwork}
+              />
+
+              <View style={styles.fullMeta}>
+                <Text style={styles.fullTitle}>{currentTrack?.title}</Text>
+                <Text style={styles.fullArtist}>{currentTrack?.artist}</Text>
+              </View>
+
+              <View style={styles.sliderContainer}>
+                <Slider
+                  style={{ width: '100%', height: 40 }}
+                  minimumValue={0}
+                  maximumValue={duration}
+                  value={position}
+                  minimumTrackTintColor="#004346"
+                  maximumTrackTintColor="rgba(0,67,70,0.2)"
+                  thumbTintColor="#004346"
+                  onSlidingComplete={seekTo}
+                />
+                <View style={styles.timeRow}>
+                  <Text style={styles.timeText}>{formatTime(position)}</Text>
+                  <Text style={styles.timeText}>{formatTime(duration)}</Text>
+                </View>
+              </View>
+
+              <View style={styles.controlsRow}>
+                <TouchableOpacity onPress={() => setIsShuffle(!isShuffle)}>
+                  <MaterialIcons
+                    name="shuffle"
+                    size={28}
+                    color={isShuffle ? '#004346' : 'rgba(0, 67, 70, 0.3)'}
+                  />
+                </TouchableOpacity>
+
+                <TouchableOpacity onPress={handlePrevious}>
+                  <MaterialIcons
+                    name="skip-previous"
+                    size={50}
+                    color="#004346"
+                  />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={togglePlayback}
+                  style={styles.mainPlayBtn}
+                >
+                  <MaterialIcons
+                    name={isPlaying ? 'pause' : 'play-arrow'}
+                    size={50}
+                    color="#fff"
+                  />
+                </TouchableOpacity>
+
+                <TouchableOpacity onPress={handleNext}>
+                  <MaterialIcons name="skip-next" size={50} color="#004346" />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => setLoopMode((loopMode + 1) % 3)}
+                >
+                  <MaterialIcons
+                    name={loopMode === 2 ? 'repeat-one' : 'repeat'}
+                    size={28}
+                    color={loopMode > 0 ? '#004346' : 'rgba(0, 67, 70, 0.3)'}
+                  />
+                </TouchableOpacity>
+              </View>
+            </SafeAreaView>
+          </View>
+        </Modal>
       </SafeAreaView>
-      <ChatOverlay
-        visible={isChatVisible}
-        onClose={() => setIsChatVisible(false)}
-      />
     </View>
   );
 };
@@ -221,51 +238,19 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   headerTitle: { fontSize: 22, fontWeight: '800', color: '#004346' },
-  featuredCard: {
-    margin: 20,
-    padding: 25,
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
-    borderRadius: 35,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.6)',
-    position: 'relative',
-  },
-  featuredLabel: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#004346',
-    opacity: 0.5,
-    letterSpacing: 2,
-  },
-  featuredTitle: {
-    fontSize: 26,
-    fontWeight: '900',
-    color: '#004346',
-    marginTop: 5,
-  },
-  featuredSub: {
-    fontSize: 14,
-    color: '#004346',
-    opacity: 0.7,
-    marginTop: 5,
-    width: '70%',
-  },
-  playAllBtn: { position: 'absolute', right: 20, bottom: 20 },
-  listContent: { paddingHorizontal: 20, paddingBottom: 150 },
+  listContent: { paddingHorizontal: 20, paddingBottom: 120 },
   trackCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     padding: 15,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     borderRadius: 20,
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   activeTrackCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.6)',
     borderColor: '#004346',
+    borderWidth: 1,
   },
   trackInfo: { flexDirection: 'row', alignItems: 'center', gap: 15, flex: 1 },
   iconCircle: {
@@ -280,30 +265,60 @@ const styles = StyleSheet.create({
   trackSubtext: { fontSize: 12, color: '#004346', opacity: 0.5 },
   miniPlayer: {
     position: 'absolute',
-    bottom: 30,
+    bottom: 20,
     left: 20,
     right: 20,
-    height: 85,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: 25,
+    height: 75,
+    backgroundColor: '#fff',
+    borderRadius: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    justifyContent: 'space-between',
+    paddingHorizontal: 15,
     elevation: 10,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
   },
-  playerInfo: { flex: 1, marginRight: 10 },
-  miniTrackTitle: { fontSize: 16, fontWeight: '800', color: '#004346' },
+  miniArtwork: { width: 45, height: 45, borderRadius: 10, marginRight: 12 },
+  playerInfo: { flex: 1 },
+  miniTrackTitle: { fontSize: 14, fontWeight: '800', color: '#004346' },
   miniArtist: { fontSize: 12, color: '#004346', opacity: 0.6 },
-  playerControls: { justifyContent: 'center' },
-  miniArtwork: {
-    width: 50,
-    height: 50,
-    borderRadius: 12,
-    marginRight: 15,
+  fullPlayerContainer: { flex: 1, backgroundColor: '#fff' },
+  closeBtn: { alignSelf: 'center', marginTop: 10 },
+  fullArtwork: {
+    width: width * 0.8,
+    height: width * 0.8,
+    borderRadius: 30,
+    alignSelf: 'center',
+    marginTop: 40,
+    elevation: 20,
+  },
+  fullMeta: { marginTop: 40, alignItems: 'center' },
+  fullTitle: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#004346',
+    textAlign: 'center',
+  },
+  fullArtist: { fontSize: 18, color: '#004346', opacity: 0.6, marginTop: 5 },
+  sliderContainer: { marginTop: 40 },
+  timeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 5,
+  },
+  timeText: { fontSize: 12, color: '#004346', opacity: 0.5 },
+  controlsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 30,
+  },
+  mainPlayBtn: {
+    backgroundColor: '#004346',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 10,
   },
 });
 
