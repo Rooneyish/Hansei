@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,59 +6,88 @@ import {
   FlatList,
   TouchableOpacity,
   Image,
-  Dimensions,
+  // Dimensions,
+  ActivityIndicator,
 } from 'react-native';
+import TrackPlayer, {
+  usePlaybackState,
+  State,
+  Capability,
+} from 'react-native-track-player';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import GradientBackground from '../components/GradientBackground';
 import ChatOverlay from '../components/ChatOverlay';
+import apiClient from '../api/client';
 
-const { width } = Dimensions.get('window');
-
-const PLAYLIST = [
-  {
-    id: '1',
-    title: 'Zen Garden',
-    duration: '5:30',
-    category: 'Meditation',
-    artist: 'Hansei Audio',
-  },
-  {
-    id: '2',
-    title: 'Morning Reflection',
-    duration: '10:00',
-    category: 'Focus',
-    artist: 'Hansei Audio',
-  },
-  {
-    id: '3',
-    title: 'Rain in Kyoto',
-    duration: '15:00',
-    category: 'Sleep',
-    artist: 'Nature',
-  },
-  {
-    id: '4',
-    title: 'Deep Insight',
-    duration: '8:45',
-    category: 'CBT',
-    artist: 'Hansei Audio',
-  },
-  {
-    id: '5',
-    title: 'Inner Peace',
-    duration: '12:20',
-    category: 'Zen',
-    artist: 'Monk Chants',
-  },
-];
-
-const MusicScreen = ({
-  onBack,
-}) => {
+const MusicScreen = ({ onBack }) => {
+  const [playlist, setPlaylist] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [currentTrack, setCurrentTrack] = useState(null);
-  const [isPlaying, setIsPlaying] = useState(false);
   const [isChatVisible, setIsChatVisible] = useState(false);
+
+  const playbackState = usePlaybackState();
+  const isPlaying =
+    playbackState === State.Playing ||
+    (typeof playbackState === 'object' &&
+      playbackState.state === State.Playing);
+
+  useEffect(() => {
+    const setupPlayer = async () => {
+      try {
+        await TrackPlayer.setupPlayer();
+        await TrackPlayer.updateOptions({
+          capabilities: [
+            Capability.Play,
+            Capability.Pause,
+            Capability.SkipToNext,
+            Capability.SkipToPrevious,
+            Capability.Stop,
+          ],
+        });
+      } catch (e) {}
+    };
+    setupPlayer();
+  }, []);
+
+  useEffect(() => {
+    const fetchMusic = async () => {
+      try {
+        const response = await apiClient.get('/music/all');
+        setPlaylist(response.data);
+      } catch (err) {
+        console.error('Fetch error:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchMusic();
+  }, []);
+
+  const handlePlayTrack = async track => {
+    try {
+      await TrackPlayer.reset();
+      await TrackPlayer.add({
+        id: track.id.toString(),
+        url: track.url,
+        title: track.title,
+        artist: track.artist,
+        artwork: track.artwork,
+      });
+      await TrackPlayer.play();
+      setCurrentTrack(track);
+    } catch (error) {
+      console.error('Playback error:', error);
+    }
+  };
+
+  const togglePlayback = async () => {
+    if (isPlaying) {
+      await TrackPlayer.pause();
+    } else {
+      await TrackPlayer.play();
+    }
+  };
 
   const renderTrackItem = ({ item }) => (
     <TouchableOpacity
@@ -66,10 +95,7 @@ const MusicScreen = ({
         styles.trackCard,
         currentTrack?.id === item.id && styles.activeTrackCard,
       ]}
-      onPress={() => {
-        setCurrentTrack(item);
-        setIsPlaying(true);
-      }}
+      onPress={() => handlePlayTrack(item)}
     >
       <View style={styles.trackInfo}>
         <View style={styles.iconCircle}>
@@ -83,10 +109,12 @@ const MusicScreen = ({
             color="#004346"
           />
         </View>
-        <View>
-          <Text style={styles.trackTitle}>{item.title}</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.trackTitle} numberOfLines={1}>
+            {item.title}
+          </Text>
           <Text style={styles.trackSubtext}>
-            {item.category} • {item.duration}
+            {item.category} • {item.artist}
           </Text>
         </View>
       </View>
@@ -106,42 +134,61 @@ const MusicScreen = ({
           <View style={{ width: 40 }} />
         </View>
 
-        <View style={styles.featuredCard}>
-          <Text style={styles.featuredLabel}>DAILY PICK</Text>
-          <Text style={styles.featuredTitle}>Deep Reflection</Text>
-          <Text style={styles.featuredSub}>
-            A 15-minute soundscape for your Hansei practice.
-          </Text>
-          <TouchableOpacity style={styles.playAllBtn}>
-            <MaterialIcons
-              name="play-circle-filled"
-              size={50}
-              color="#004346"
-            />
-          </TouchableOpacity>
-        </View>
+        {loading ? (
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color="#004346" />
+          </View>
+        ) : (
+          <>
+            <View style={styles.featuredCard}>
+              <Text style={styles.featuredLabel}>DAILY PICK</Text>
+              <Text style={styles.featuredTitle}>
+                {playlist[0]?.title || 'Zen Focus'}
+              </Text>
+              <Text style={styles.featuredSub}>
+                A curated soundscape for your Hansei practice.
+              </Text>
+              <TouchableOpacity
+                style={styles.playAllBtn}
+                onPress={() => playlist[0] && handlePlayTrack(playlist[0])}
+              >
+                <MaterialIcons
+                  name="play-circle-filled"
+                  size={60}
+                  color="#004346"
+                />
+              </TouchableOpacity>
+            </View>
 
-        <FlatList
-          data={PLAYLIST}
-          keyExtractor={item => item.id}
-          renderItem={renderTrackItem}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-        />
+            <FlatList
+              data={playlist}
+              keyExtractor={item => item.id.toString()}
+              renderItem={renderTrackItem}
+              contentContainerStyle={styles.listContent}
+              showsVerticalScrollIndicator={false}
+            />
+          </>
+        )}
 
         {currentTrack && (
           <View style={styles.miniPlayer}>
             <View style={styles.playerInfo}>
-              <Text style={styles.miniTrackTitle}>{currentTrack.title}</Text>
+              <Image
+                source={{ uri: currentTrack.artwork }}
+                style={styles.miniArtwork}
+              />
+              <Text style={styles.miniTrackTitle} numberOfLines={1}>
+                {currentTrack.title}
+              </Text>
               <Text style={styles.miniArtist}>{currentTrack.artist}</Text>
             </View>
             <View style={styles.playerControls}>
-              <TouchableOpacity onPress={() => setIsPlaying(!isPlaying)}>
+              <TouchableOpacity onPress={togglePlayback}>
                 <MaterialIcons
                   name={
                     isPlaying ? 'pause-circle-filled' : 'play-circle-filled'
                   }
-                  size={45}
+                  size={50}
                   color="#004346"
                 />
               </TouchableOpacity>
@@ -160,6 +207,7 @@ const MusicScreen = ({
 const styles = StyleSheet.create({
   container: { flex: 1 },
   safeArea: { flex: 1 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -203,7 +251,7 @@ const styles = StyleSheet.create({
     width: '70%',
   },
   playAllBtn: { position: 'absolute', right: 20, bottom: 20 },
-  listContent: { paddingHorizontal: 20, paddingBottom: 120 },
+  listContent: { paddingHorizontal: 20, paddingBottom: 150 },
   trackCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -219,7 +267,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.6)',
     borderColor: '#004346',
   },
-  trackInfo: { flexDirection: 'row', alignItems: 'center', gap: 15 },
+  trackInfo: { flexDirection: 'row', alignItems: 'center', gap: 15, flex: 1 },
   iconCircle: {
     width: 45,
     height: 45,
@@ -235,21 +283,28 @@ const styles = StyleSheet.create({
     bottom: 30,
     left: 20,
     right: 20,
-    height: 80,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    height: 85,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
     borderRadius: 25,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
     justifyContent: 'space-between',
+    elevation: 10,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.2,
     shadowRadius: 10,
-    elevation: 5,
   },
+  playerInfo: { flex: 1, marginRight: 10 },
   miniTrackTitle: { fontSize: 16, fontWeight: '800', color: '#004346' },
   miniArtist: { fontSize: 12, color: '#004346', opacity: 0.6 },
+  playerControls: { justifyContent: 'center' },
+  miniArtwork: {
+    width: 50,
+    height: 50,
+    borderRadius: 12,
+    marginRight: 15,
+  },
 });
 
 export default MusicScreen;

@@ -281,6 +281,17 @@ async function deleteSession(session_id, user_id) {
   }
 }
 
+async function getAllMusic() {
+  const query = "SELECT * FROM music_tracks";
+  try {
+    const result = await pool.query(query);
+    return result.rows;
+  } catch (err) {
+    console.error("Cannot find music tracks");
+    throw err;
+  }
+}
+
 module.exports = {
   registerUser,
   findUserByUsername,
@@ -302,4 +313,5 @@ module.exports = {
   saveChatMessage,
   getAllUserSessions,
   deleteSession,
+  getAllMusic,
 };

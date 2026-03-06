@@ -1,6 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
+const path = require("path");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -16,6 +17,8 @@ app.get("/test", (req, res) => {
   res.send("Server is live!");
 });
 
+app.use('/assets', express.static(path.join(__dirname, 'assets')));
+
 // Authentication routes (Login/Register)
 app.use("/api/auth", require("./routes/authRoutes"));
 
@@ -27,6 +30,11 @@ app.use("/api", require("./routes/chatRoutes"));
 
 // History routes (Chat History, Activity History)
 app.use("/api", require("./routes/historyRoutes"))
+
+// Music routes 
+app.use("/api", require('./routes/musicRoutes'))
+
+
 
 
 app.listen(PORT, HOST, () => {
