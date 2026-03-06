@@ -69,32 +69,20 @@ const ChatOverlay = ({ visible, onClose, sessionId = null }) => {
         setActiveSessionId(sessionId);
         fetchHistory(sessionId);
       } else {
-        startNewChat();
+        setMessages([
+          {
+            id: 'welcome',
+            text: "Hi, I'm Hansei. Let's take a moment to reflect together. What's on your mind?",
+            sender: 'ai',
+          },
+        ]);
+        setActiveSessionId(null);
       }
     } else {
       setMessages([]);
       setActiveSessionId(null);
     }
   }, [visible, sessionId]);
-
-  const startNewChat = async () => {
-    setIsLoading(true);
-    try {
-      const response = await apiClient.post('/chat/new-session');
-      setActiveSessionId(response.data.session_id);
-      setMessages([
-        {
-          id: 'welcome',
-          text: "Hi, I'm Hansei. Let's take a moment to reflect together. What's on your mind?",
-          sender: 'ai',
-        },
-      ]);
-    } catch (error) {
-      console.error('New session error:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const fetchHistory = async id => {
     setIsLoading(true);
@@ -109,11 +97,28 @@ const ChatOverlay = ({ visible, onClose, sessionId = null }) => {
   };
 
   const sendMessage = async () => {
-    if (!inputText.trim() || !activeSessionId) return;
+    if (!inputText.trim()) return;
 
+    let currentSessionId = activeSessionId;
     const userMsgText = inputText.trim();
+
+    if (!currentSessionId) {
+      setIsLoading(true);
+      try {
+        const response = await apiClient.post('/chat/new-session');
+        currentSessionId = response.data.session_id;
+        setActiveSessionId(currentSessionId);
+      } catch (error) {
+        console.error('Failed to create session:', error);
+        setIsLoading(false);
+        return;
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
     const userMsgId = `user-${Date.now()}`;
-    const aiMsgId = `ai-${Date.now()}`; 
+    const aiMsgId = `ai-${Date.now()}`;
 
     setMessages(prev => [
       ...prev,
@@ -135,7 +140,7 @@ const ChatOverlay = ({ visible, onClose, sessionId = null }) => {
         },
         body: JSON.stringify({
           message: userMsgText,
-          session_id: activeSessionId,
+          session_id: currentSessionId,
         }),
         reactNative: { textStreaming: true },
       });
@@ -150,7 +155,7 @@ const ChatOverlay = ({ visible, onClose, sessionId = null }) => {
         const { done, value } = await reader.read();
 
         if (done) {
-          const finalChunk = decoder.decode(); 
+          const finalChunk = decoder.decode();
           if (finalChunk) {
             accumulatedText += finalChunk;
             setMessages(prev =>
