@@ -19,6 +19,7 @@ from transformers import (
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
+from qdrant_client.http import models as rest 
 
 from src.model import FineTuneRoBERTa
 from src.utils import clean_text, EMOTIONS, get_mood_details
@@ -36,6 +37,7 @@ class HanseiState:
         self.qwen_model = None
         self.qwen_tokenizer = None
         self.vectorstore = None
+        self.music_vectorstore = None
 
 state = HanseiState()
 
@@ -47,9 +49,9 @@ async def lifespan(app: FastAPI):
         if os.path.exists("fine_tuned_roberta.pt"):
             state.emotion_model.load_state_dict(torch.load("fine_tuned_roberta.pt", map_location=CPU_DEVICE))
             state.emotion_model.to(CPU_DEVICE).eval()
-            logger.info("✅ Emotion Detection Model loaded on CPU")
+            logger.info("Emotion Detection Model loaded on CPU")
     except Exception as e:
-        logger.error(f"❌ Error Loading Emotion Model: {e}")
+        logger.error(f"Error Loading Emotion Model: {e}")
 
     try:
         qwen_id = "Qwen/Qwen2.5-7B-Instruct"
@@ -66,9 +68,9 @@ async def lifespan(app: FastAPI):
             device_map="auto", 
             trust_remote_code=True
         )
-        logger.info("✅ Qwen LLM loaded on GPU")
+        logger.info("Qwen LLM loaded on GPU")
     except Exception as e:
-        logger.error(f"❌ Error loading Qwen LLM: {e}")
+        logger.error(f"Error loading Qwen LLM: {e}")
 
     try:
         embeddings = HuggingFaceEmbeddings(
@@ -81,9 +83,15 @@ async def lifespan(app: FastAPI):
             collection_name="hansei_kb", 
             embedding=embeddings         
         )
-        logger.info("✅ Qdrant Connection: Successful")
+
+        state.music_vectorstore = QdrantVectorStore(
+            client=client,
+            collection_name="music_library", 
+            embedding=embeddings
+        )
+        logger.info("Qdrant Connection: Successful")
     except Exception as e:
-        logger.error(f"❌ Qdrant Error: {e}")
+        logger.error(f"Qdrant Error: {e}")
 
     yield
     logger.info("Shutting down Hansei Engine...")
@@ -137,6 +145,72 @@ def get_relevant_docs(question: str):
         except Exception as e:
             logger.error(f"Retriever error: {e}")
     return "Not available."
+
+EMOTION_TO_MUSIC_MAP = {
+    "admiration": "hopeful",
+    "amusement": "happy",
+    "anger": "calm",        
+    "annoyance": "calm",
+    "approval": "happy",
+    "caring": "peaceful",
+    "confusion": "focused",
+    "curiosity": "focused",
+    "desire": "peaceful",
+    "disappointment": "reflective",
+    "disapproval": "reflective",
+    "disgust": "calm",
+    "embarrassment": "peaceful",
+    "excitement": "happy",
+    "fear": "calm",
+    "gratitude": "grateful",
+    "grief": "reflective",
+    "joy": "happy",
+    "love": "peaceful",
+    "nervousness": "calm",
+    "optimism": "hopeful",
+    "pride": "happy",
+    "realization": "reflective", 
+    "relief": "peaceful",
+    "remorse": "reflective",
+    "sadness": "reflective",
+    "surprise": "focused",
+    "neutral": "neutral"
+}
+
+def get_music_recommendation(journal_text: str, predicted_emotion: str):
+    if not state.music_vectorstore:
+        return None
+    try:
+        music_tag = EMOTION_TO_MUSIC_MAP.get(predicted_emotion, "reflective")
+
+        emotion_filter = rest.Filter(
+            must=[
+                rest.FieldCondition(
+                    key="metadata.mood_tags", 
+                    match=rest.MatchAny(any=[music_tag])
+                )
+            ]
+        )
+
+        query = f"search_query: {journal_text}"
+        results = state.music_vectorstore.similarity_search(
+            query, 
+            k=1, 
+            filter=emotion_filter
+        )
+
+        if results:
+            meta = results[0].metadata
+            return {
+                "database_id": meta.get("database_id"),
+                "title": meta.get("title"),
+                "artist": meta.get("artist"),
+                "reasoning": f"This track resonates with your feeling of {predicted_emotion}."
+            }
+    except Exception as e:
+        logger.error(f"Music Recommendation Error: {e}")
+    
+    return None
 
 async def generate_stream(message: str, history_str: str, context: str):
     full_prompt = SYSTEM_TEMPLATE.format(
@@ -202,12 +276,14 @@ async def analyze_journal(request: JournalRequest):
         predicted_emotion = EMOTIONS[max_idx]
         confidence = float(probs[max_idx])
         emoji = get_mood_details(predicted_emotion)
+        music_rec = get_music_recommendation(request.text, predicted_emotion)
         
         return {
             "emotion": predicted_emotion,
             "emoji": emoji,
             "confidence": round(confidence, 4),
-            "status_text": f"{predicted_emotion.capitalize()} {emoji}"
+            "status_text": f"{predicted_emotion.capitalize()} {emoji}",
+            "music_recommendation": music_rec
         }
     except Exception as e:
         logger.error(f"Emotion Detection Error: {e}")
