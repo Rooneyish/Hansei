@@ -11,6 +11,7 @@ import ChatOverlay from './src/components/ChatOverlay';
 import MusicScreen from './src/screens/MusicScreen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MusicProvider } from './src/context/MusicContext';
+import base64 from 'react-native-base64';
 
 const App = () => {
   const [currentScreen, setCurrentScreen] = useState<
@@ -30,6 +31,7 @@ const App = () => {
     null,
   );
 
+  const expirationTimer = useRef(null);
   const fadeValue = useRef(new Animated.Value(1)).current;
   const scaleValue = useRef(new Animated.Value(1)).current;
 
@@ -113,6 +115,98 @@ const App = () => {
       console.log('Error logging out: ', err);
     }
   }, [navigateTo]);
+
+  const setupLocalExpiryTimer = useCallback(
+    token => {
+      try {
+        if (!token || typeof token !== 'string') return;
+
+        const base64Url = token.split('.')[1];
+        if (!base64Url) return;
+
+        let base64Str = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        while (base64Str.length % 4 !== 0) {
+          base64Str += '=';
+        }
+
+        const jsonPayload = base64.decode(base64Str);
+        const payload = JSON.parse(jsonPayload);
+
+        const expiryInMs = payload.exp * 1000;
+        const timeLeft = expiryInMs - Date.now();
+
+        if (expirationTimer.current) clearTimeout(expirationTimer.current);
+
+        if (timeLeft > 0) {
+          console.log(
+            `Auto-logout set for ${Math.round(
+              timeLeft / 1000 / 60,
+            )} minutes from now.`,
+          );
+          expirationTimer.current = setTimeout(() => {
+            Alert.alert('Session Expired', 'Please log in again.');
+            handleLogout();
+          }, timeLeft);
+        } else {
+          console.warn('Token already expired, triggering logout.');
+          handleLogout();
+        }
+      } catch (e) {
+        console.error('Timer setup failed:', e);
+      }
+    },
+    [handleLogout],
+  );
+
+  const handleExpiredToken = useCallback(
+    async token => {
+      if (!token) return 'expired';
+
+      try {
+        const response = await fetch('http://0.0.0.0:3000/api/auth/verify', {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        const data = await response.json();
+
+        if (response.status !== 200 || data.status === 'expired') {
+          return 'expired';
+        }
+
+        setupLocalExpiryTimer(token);
+        return 'valid';
+      } catch (err) {
+        console.error('Verification error:', err);
+        return 'expired';
+      }
+    },
+    [setupLocalExpiryTimer],
+  );
+
+  useEffect(() => {
+    const initAuth = async () => {
+      try {
+        await new Promise(resolve => setTimeout(resolve, 3000));
+
+        const token = await AsyncStorage.getItem('userToken');
+        const authStatus = await handleExpiredToken(token);
+
+        if (authStatus === 'expired') {
+          await handleLogout();
+        } else {
+          navigateTo('home');
+        }
+      } catch (err) {
+        navigateTo('login');
+      }
+    };
+
+    initAuth();
+  }, []);
 
   const renderScreen = () => {
     switch (currentScreen) {

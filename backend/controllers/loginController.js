@@ -48,7 +48,32 @@ async function logoutUser(req, res) {
     res.status(200).json({ message: 'User logged out successfully' });
 }
 
+async function verifyToken(req, res) {
+    try {
+        const authHeader = req.headers['authorization'];
+        const token = authHeader && authHeader.split(' ')[1]; 
+
+        if (!token) {
+            return res.status(401).json({ status: 'expired', message: 'No token provided' });
+        }
+
+        jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+            if (err) {
+                return res.status(401).json({ status: 'expired', message: 'Token invalid or expired' });
+            }
+
+            res.status(200).json({ 
+                status: 'valid', 
+                user: decoded 
+            });
+        });
+    } catch (err) {
+        res.status(500).json({ error: 'Server error during verification' });
+    }
+}
+
 module.exports = {
     loginUser,
-    logoutUser
+    logoutUser,
+    verifyToken
 };

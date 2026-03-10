@@ -131,8 +131,8 @@ const ChatOverlay = ({ visible, onClose, sessionId = null }) => {
 
     try {
       const token = await AsyncStorage.getItem('userToken');
-
-      const response = await fetch('http://192.168.2.71:3000/api/chat', {
+      const response = await fetch('http://192.168.2.71:3000/api/chat', {     // on ethernet
+        // const response = await fetch('http://10.88.3.12:3000/api/chat', { // on hotspot
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
