@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,8 @@ import {
   Alert,
   ActivityIndicator,
   Keyboard,
+  Animated,
+  Easing,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
@@ -18,6 +20,7 @@ import GradientBackground from '../components/GradientBackground';
 import NavigationBar from '../components/NavigationBar';
 import ChatOverlay from '../components/ChatOverlay';
 import apiClient from '../api/client';
+import { useMusic } from '../context/MusicContext';
 
 const HomeScreen = ({
   onNavigateHome,
@@ -33,6 +36,8 @@ const HomeScreen = ({
   const [isScanning, setIsScanning] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isChatVisible, setIsChatVisible] = useState(false);
+  const { isPlaying } = useMusic();
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   const fetchUserData = useCallback(async () => {
     try {
@@ -50,6 +55,29 @@ const HomeScreen = ({
   useEffect(() => {
     fetchUserData();
   }, [fetchUserData]);
+
+  useEffect(() => {
+    if (isPlaying) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.1,
+            duration: 800,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 800,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ]),
+      ).start();
+    } else {
+      pulseAnim.setValue(1);
+    }
+  }, [isPlaying]);
 
   const processImageForOCR = async result => {
     if (result.didCancel || !result.assets) return;
@@ -219,25 +247,52 @@ const HomeScreen = ({
                 { name: 'CBT Lab', icon: 'psychology' },
                 { name: 'Quests', icon: 'stars' },
                 { name: 'Zen Room', icon: 'self-improvement' },
-              ].map((item, idx) => (
-                <TouchableOpacity
-                  key={idx}
-                  style={styles.activityCard}
-                  onPress={() => {
-                    if (item.name === 'Music') {
-                      onNavigateMusic();
-                    } else {
-                      Alert.alert(
-                        'Coming Soon',
-                        `${item.name} is under development.`,
-                      );
-                    }
-                  }}
-                >
-                  <MaterialIcons name={item.icon} size={32} color="#004346" />
-                  <Text style={styles.activityLabel}>{item.name}</Text>
-                </TouchableOpacity>
-              ))}
+              ].map((item, idx) => {
+                const isThisMusicPlaying = item.name === 'Music' && isPlaying;
+
+                return (
+                  <TouchableOpacity
+                    key={idx}
+                    style={[
+                      styles.activityCard,
+                      isThisMusicPlaying && styles.activeMusicCard,
+                    ]}
+                    onPress={() => {
+                      if (item.name === 'Music') {
+                        onNavigateMusic();
+                      } else {
+                        Alert.alert(
+                          'Coming Soon',
+                          `${item.name} is under development.`,
+                        );
+                      }
+                    }}
+                  >
+                    <Animated.View
+                      style={[
+                        styles.iconContainer,
+                        isThisMusicPlaying && {
+                          transform: [{ scale: pulseAnim }],
+                        },
+                      ]}
+                    >
+                      <MaterialIcons
+                        name={isThisMusicPlaying ? 'graphic-eq' : item.icon}
+                        size={32}
+                        color={isThisMusicPlaying ? '#004346' : '#004346'}
+                      />
+                    </Animated.View>
+                    <Text
+                      style={[
+                        styles.activityLabel,
+                        isThisMusicPlaying && styles.activeLabel,
+                      ]}
+                    >
+                      {isThisMusicPlaying ? 'Playing' : item.name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </View>
         </ScrollView>
@@ -371,6 +426,19 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#004346',
     fontSize: 14,
+  },
+  activeMusicCard: {
+    borderColor: '#004346',
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    borderWidth: 1,
+  },
+  activeLabel: {
+    color: '#004346',
+    fontWeight: '900',
+  },
+  iconContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 
