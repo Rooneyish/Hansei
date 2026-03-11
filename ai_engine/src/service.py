@@ -69,6 +69,25 @@ Message: {question}<|im_end|>
 <|im_start|>assistant
 Hansei:"""
 
+CBT_LAB_PROMPT = """
+<|im_start|>system
+You are the 'Hansei Lab Technician'. Your task is to analyze the user's journal entry using the clinical technique: {technique}.
+
+Follow this professional CBT Plan to generate your response:
+{cbt_plan}
+
+Instructions:
+1. DISTORTION: Based on the plan, identify the specific cognitive distortion in the journal.
+2. THOUGHT: Extract the specific negative automatic thought.
+3. REFRAME: Provide a 2-sentence Hansei reframe using the clinical logic above.
+<|im_end|>
+<|im_start|>user
+User Journal Entry: {journal_text}
+<|im_end|>
+<|im_start|>assistant
+"""
+
+
 def get_relevant_docs(question: str, vectorstore):
     ignore_list = ["hi", "hello", "hey", "howdy"]
     if any(greet in question.lower().strip() for greet in ignore_list):
@@ -120,6 +139,65 @@ def get_music_recommendation(
     except Exception:
         return None
     return None
+
+
+def get_cbt_lab_analysis(
+    journal_text: str, cbt_vectorstore, qwen_model, qwen_tokenizer, device
+):
+    if not cbt_vectorstore:
+        return None
+
+    try:
+        results = cbt_vectorstore.similarity_search(
+            f"search_query: {journal_text}", k=1
+        )
+
+        if not results:
+            return {
+                "distortion": "Reflection",
+                "thought": "None detected",
+                "reframe": "Keep reflecting on your journey.",
+            }
+
+        meta = results[0].metadata
+        technique = meta.get("technique", "Cognitive Reframing")
+        cbt_plan = meta.get("cbt_plan", "Standard CBT protocol")
+
+        full_prompt = CBT_LAB_PROMPT.format(
+            technique=technique, cbt_plan=cbt_plan, journal_text=journal_text
+        )
+
+        inputs = qwen_tokenizer([full_prompt], return_tensors="pt").to(device)
+        with torch.no_grad():
+            outputs = qwen_model.generate(**inputs, max_new_tokens=150, temperature=0.3)
+
+        response = (
+            qwen_tokenizer.decode(outputs[0], skip_special_tokens=True)
+            .split("assistant")[-1]
+            .strip()
+        )
+
+        analysis = {
+            "distortion": technique,
+            "thought": journal_text[:60] + "...",
+            "reframe": "",
+        }
+        for line in response.split("\n"):
+            if "DISTORTION:" in line.upper():
+                analysis["distortion"] = line.split(":", 1)[1].strip()
+            if "THOUGHT:" in line.upper():
+                analysis["thought"] = line.split(":", 1)[1].strip()
+            if "REFRAME:" in line.upper():
+                analysis["reframe"] = line.split(":", 1)[1].strip()
+
+        if not analysis["reframe"]:
+            analysis["reframe"] = response
+        return analysis
+
+    except Exception as e:
+        print(f"CBT Lab Error: {e}")
+        return None
+
 
 async def generate_stream(
     message: str, history_str: str, context: str, qwen_model, qwen_tokenizer, device

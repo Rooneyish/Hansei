@@ -23,6 +23,7 @@ from src.service import (
     get_relevant_docs,
     get_music_recommendation,
     generate_stream,
+    get_cbt_lab_analysis,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -40,6 +41,7 @@ class HanseiState:
         self.qwen_tokenizer = None
         self.vectorstore = None
         self.music_vectorstore = None
+        self.cbt_lab_vectorstore = None
 
 
 state = HanseiState()
@@ -90,6 +92,10 @@ async def lifespan(app: FastAPI):
         state.music_vectorstore = QdrantVectorStore(
             client=client, collection_name="music_library", embedding=embeddings
         )
+        state.cbt_lab_vectorstore = QdrantVectorStore(
+            client=client, collection_name="cbt_lab_library", embedding=embeddings
+        )
+
         logger.info("Qdrant Collections Connected")
     except Exception as e:
         logger.error(f"Qdrant Connection Error: {e}")
@@ -133,11 +139,20 @@ async def analyze_journal(request: JournalRequest):
 
     music = get_music_recommendation(request.text, emotion, state.music_vectorstore)
 
+    cbt = get_cbt_lab_analysis(
+        request.text,
+        state.cbt_lab_vectorstore,
+        state.qwen_model,
+        state.qwen_tokenizer,
+        GPU_DEVICE,
+    )
+
     return {
         "emotion": emotion,
         "emoji": get_mood_details(emotion),
         "status_text": f"{emotion.capitalize()} {get_mood_details(emotion)}",
         "music_recommendation": music,
+        "cbt_analysis": cbt,
     }
 
 
