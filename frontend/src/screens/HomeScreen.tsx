@@ -100,16 +100,28 @@ const HomeScreen = ({
         content: journalText,
       });
 
-      if (response.data.mood) {
-        setMood(response.data.mood);
-      }
+      const { mood, streak, music_recommendation, emotion } = response.data;
 
-      if (response.data.streak !== undefined) {
-        setStreak(response.data.streak);
-      }
-
+      if (mood) setMood(mood);
+      if (streak !== undefined) setStreak(streak);
       setJournalText('');
       Keyboard.dismiss();
+
+      if (music_recommendation) {
+        Alert.alert(
+          'Reflection Analyzed ✨',
+          `You seem to be feeling ${emotion}.\n\nBased on your Hansei, we recommend listening to "${music_recommendation.title}" by ${music_recommendation.artist}.`,
+          [
+            { text: 'Later', style: 'cancel' },
+            {
+              text: 'Listen Now',
+              onPress: () => onNavigateMusic(music_recommendation),
+            },
+          ],
+        );
+      } else {
+        Alert.alert('Entry Saved', 'Your daily reflection has been recorded.');
+      }
     } catch (err) {
       Alert.alert('Error', 'Failed to save reflection.');
     } finally {

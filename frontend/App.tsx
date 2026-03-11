@@ -25,6 +25,7 @@ const App = () => {
     | 'history'
     | 'music'
   >('welcome');
+  const [recommendedTrack, setRecommendedTrack] = useState(null);
 
   const [isChatVisible, setIsChatVisible] = useState(false);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
@@ -208,6 +209,14 @@ const App = () => {
     initAuth();
   }, []);
 
+  const handleNavigateMusic = useCallback(
+    (track = null) => {
+      setRecommendedTrack(track);
+      navigateTo('music');
+    },
+    [navigateTo],
+  );
+
   const renderScreen = () => {
     switch (currentScreen) {
       case 'welcome':
@@ -228,7 +237,7 @@ const App = () => {
             onNavigateHome={() => navigateTo('home')}
             onNavigateInsights={() => navigateTo('insights')}
             onNavigateChatHistory={() => navigateTo('history')}
-            onNavigateMusic={() => navigateTo('music')}
+            onNavigateMusic={handleNavigateMusic}
             onPressAI={() => {
               setSelectedSessionId(null);
               setIsChatVisible(true);
@@ -283,7 +292,15 @@ const App = () => {
           />
         );
       case 'music':
-        return <MusicScreen onBack={() => navigateTo('home')} />;
+        return (
+          <MusicScreen
+            onBack={() => {
+              setRecommendedTrack(null); 
+              navigateTo('home');
+            }}
+            initialTrack={recommendedTrack}
+          />
+        );
       default:
         return <WelcomeScreen />;
     }

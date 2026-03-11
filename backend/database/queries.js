@@ -292,6 +292,16 @@ async function getAllMusic() {
   }
 }
 
+async function getTrackById(id) {
+  const query = 'SELECT * FROM music_tracks WHERE id = $1';
+  try{
+    const result = await pool.query(query, [id]);
+    return result.rows[0];
+  } catch (err){
+    console.log("Cannot find music track with id: ", err.message)
+  }
+}
+
 module.exports = {
   registerUser,
   findUserByUsername,
@@ -314,4 +324,5 @@ module.exports = {
   getAllUserSessions,
   deleteSession,
   getAllMusic,
+  getTrackById
 };

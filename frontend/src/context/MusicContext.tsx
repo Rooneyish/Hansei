@@ -102,7 +102,13 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({
       setDuration(sound.getDuration());
       sound.play(success => {
         if (success) {
-          handleNext();
+          if (loopMode === 2) {
+            handlePlayTrack(track);
+          } else if (loopMode === 1 || playlist.length > 1) {
+            handleNext();
+          } else {
+            setIsPlaying(false);
+          }
         } else {
           setIsPlaying(false);
         }

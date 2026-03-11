@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -18,7 +18,7 @@ import { useMusic } from '../context/MusicContext';
 
 const { width } = Dimensions.get('window');
 
-const MusicScreen = ({ onBack }) => {
+const MusicScreen = ({ onBack, initialTrack }) => {
   const {
     playlist,
     loading,
@@ -36,6 +36,12 @@ const MusicScreen = ({ onBack }) => {
     setLoopMode,
     setIsShuffle,
   } = useMusic();
+
+  useEffect(() => {
+    if (initialTrack) {
+      handlePlayTrack(initialTrack);
+    }
+  }, [initialTrack]);
 
   const [isFullPlayerVisible, setIsFullPlayerVisible] = useState(false);
 
@@ -95,6 +101,27 @@ const MusicScreen = ({ onBack }) => {
           </View>
         ) : (
           <FlatList
+            ListHeaderComponent={
+              <View style={styles.featuredCard}>
+                <Text style={styles.featuredLabel}>DAILY PICK</Text>
+                <Text style={styles.featuredTitle}>
+                  {currentTrack?.title || playlist[0]?.title || 'Zen Focus'}
+                </Text>
+                <Text style={styles.featuredSub}>
+                  The recommended soundscape for your Hansei practice today.
+                </Text>
+                <TouchableOpacity
+                  style={styles.playAllBtn}
+                  onPress={() => handlePlayTrack(currentTrack || playlist[0])}
+                >
+                  <MaterialIcons
+                    name="play-circle-filled"
+                    size={60}
+                    color="#004346"
+                  />
+                </TouchableOpacity>
+              </View>
+            }
             data={playlist}
             keyExtractor={item => item.id.toString()}
             renderItem={renderTrackItem}
@@ -319,6 +346,43 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 10,
+  },
+  featuredCard: {
+    margin: 5,
+    marginBottom: 12,
+    padding: 25,
+    marginRight: 0,
+    marginLeft: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    borderRadius: 35,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.6)',
+    position: 'relative',
+  },
+  featuredLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#004346',
+    opacity: 0.5,
+    letterSpacing: 2,
+  },
+  featuredTitle: {
+    fontSize: 26,
+    fontWeight: '900',
+    color: '#004346',
+    marginTop: 5,
+  },
+  featuredSub: {
+    fontSize: 14,
+    color: '#004346',
+    opacity: 0.7,
+    marginTop: 5,
+    width: '70%',
+  },
+  playAllBtn: {
+    position: 'absolute',
+    right: 20,
+    bottom: 20,
   },
 });
 

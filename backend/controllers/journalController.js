@@ -52,7 +52,7 @@ async function scanText(req, res) {
 
 async function submitJournal(req, res) {
   const userId = req.user.id;
-  const { content } = req.body; 
+  const { content } = req.body;
 
   if (!content || content.trim() === "") {
     return res.status(400).json({ error: "Journal content cannot be empty" });
@@ -67,14 +67,33 @@ async function submitJournal(req, res) {
     let aiEmotion = "neutral";
     let aiConfidence = 0.0;
     let moodStatus = "Reflective ✨";
+    let musicRecommendation = null;
 
     try {
       const aiResponse = await axios.post("http://127.0.0.1:8000/analyze", {
-        text: content, 
+        text: content,
       });
       aiEmotion = aiResponse.data.emotion;
       aiConfidence = aiResponse.data.confidence;
       moodStatus = aiResponse.data.status_text;
+
+      if (aiResponse.data.music_recommendation) {
+        const rec = aiResponse.data.music_recommendation;
+
+        const trackDetails = await queries.getTrackById(rec.database_id);
+
+        if (trackDetails) {
+          const baseUrl = `${req.protocol}://${req.get("host")}`;
+          musicRecommendation = {
+            id: trackDetails.id,
+            title: trackDetails.title,
+            artist: trackDetails.artist,
+            reasoning: rec.reasoning,
+            url: `${baseUrl}/assets/music/${trackDetails.music_file}`,
+            artwork: `${baseUrl}/assets/musicCovers/${trackDetails.artwork_file}`,
+          };
+        }
+      }
     } catch (aiErr) {
       console.error("FastAPI Error: AI Engine unreachable.");
     }
@@ -87,7 +106,9 @@ async function submitJournal(req, res) {
       message: "Journal saved, mood, and streak updated!",
       mood: moodStatus,
       streak: streakData.streak_count,
-      entry: { ...entry, content: content }, 
+      emotion: aiEmotion, 
+      music_recommendation: musicRecommendation, 
+      entry: { ...entry, content: content },
     });
   } catch (err) {
     console.error("Database Error:", err);
