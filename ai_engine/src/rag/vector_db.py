@@ -4,8 +4,10 @@ from langchain_core.documents import Document
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
+import os
 
-advice_data = pd.read_json("clinical_kb.jsonl", lines=True).to_dict(orient='records')
+DATA_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "knowledge_base", "clinical_kb.jsonl")
+advice_data = pd.read_json(DATA_PATH, lines=True).to_dict(orient='records')
 
 docs = []
 for entry in advice_data:
@@ -15,11 +17,6 @@ for entry in advice_data:
         metadata=entry['metadata']  
     )
     docs.append(doc)
-
-# for _, row in df.iterrows():
-#     text_content = f"Situation: {row['text']}\nResponse: {row['response']}"
-#     docs.append(Document(page_content=text_content, metadata={"technique": row['technique']}))
-
 
 embeddings = HuggingFaceEmbeddings(
     model_name="nomic-ai/nomic-embed-text-v1",
