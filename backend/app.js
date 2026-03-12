@@ -34,6 +34,8 @@ app.use("/api", require("./routes/historyRoutes"))
 // Music routes 
 app.use("/api", require('./routes/musicRoutes'))
 
+// CBT routes
+app.use("/api/cbt", require('./routes/cbtRoutes'))
 
 
 

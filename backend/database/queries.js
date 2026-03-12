@@ -302,6 +302,25 @@ async function getTrackById(id) {
   }
 }
 
+async function saveCBTResult(userId, journalId, distortion, thought, reframe) {
+  const query = `
+    INSERT INTO cbt_lab_results (user_id, journal_id, distortion_type, original_thought, reframed_thought)
+    VALUES ($1, $2, $3, $4, $5) RETURNING *;
+  `;
+  const result = await pool.query(query, [userId, journalId, distortion, thought, reframe]);
+  return result.rows[0];
+}
+
+async function getCBTHistory(userId) {
+  const query = `
+    SELECT * FROM cbt_lab_results 
+    WHERE user_id = $1 
+    ORDER BY created_at DESC;
+  `;
+  const result = await pool.query(query, [userId]);
+  return result.rows;
+}
+
 module.exports = {
   registerUser,
   findUserByUsername,
@@ -324,5 +343,7 @@ module.exports = {
   getAllUserSessions,
   deleteSession,
   getAllMusic,
-  getTrackById
+  getTrackById,
+  saveCBTResult,
+  getCBTHistory,
 };

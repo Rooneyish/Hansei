@@ -87,6 +87,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [isPlaying]);
 
   const handlePlayTrack = (track: Track) => {
+    if (timerRef.current) clearInterval(timerRef.current);
     if (soundRef.current) {
       soundRef.current.stop().release();
     }
@@ -100,14 +101,17 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({
       setCurrentTrack(track);
       setIsPlaying(true);
       setDuration(sound.getDuration());
+      setPosition(0);
+
       sound.play(success => {
         if (success) {
           if (loopMode === 2) {
             handlePlayTrack(track);
-          } else if (loopMode === 1 || playlist.length > 1) {
+          } else if (loopMode === 1) {
             handleNext();
           } else {
             setIsPlaying(false);
+            setPosition(0);
           }
         } else {
           setIsPlaying(false);

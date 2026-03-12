@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Animated, View, StyleSheet, Easing } from 'react-native';
+import { Animated, View, StyleSheet, Easing, Alert } from 'react-native';
 import WelcomeScreen from './src/screens/WelcomeScreen';
 import RegistrationScreen from './src/screens/RegistrationScreen';
 import LoginScreen from './src/screens/LoginScreen';
@@ -9,46 +9,24 @@ import EditProfileScreen from './src/screens/EditProfileScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
 import ChatOverlay from './src/components/ChatOverlay';
 import MusicScreen from './src/screens/MusicScreen';
+import CBTLabScreen from './src/screens/CBTLabScreen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MusicProvider } from './src/context/MusicContext';
 import base64 from 'react-native-base64';
 
 const App = () => {
-  const [currentScreen, setCurrentScreen] = useState<
-    | 'welcome'
-    | 'login'
-    | 'register'
-    | 'home'
-    | 'profile'
-    | 'insights'
-    | 'editProfile'
-    | 'history'
-    | 'music'
-  >('welcome');
+  const [currentScreen, setCurrentScreen] = useState('welcome');
   const [recommendedTrack, setRecommendedTrack] = useState(null);
-
   const [isChatVisible, setIsChatVisible] = useState(false);
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
-    null,
-  );
+  const [selectedSessionId, setSelectedSessionId] = useState(null);
+  const [proactiveMessage, setProactiveMessage] = useState(null);
 
   const expirationTimer = useRef(null);
   const fadeValue = useRef(new Animated.Value(1)).current;
   const scaleValue = useRef(new Animated.Value(1)).current;
 
   const navigateTo = useCallback(
-    (
-      screenName:
-        | 'welcome'
-        | 'login'
-        | 'register'
-        | 'home'
-        | 'profile'
-        | 'insights'
-        | 'editProfile'
-        | 'history'
-        | 'music',
-    ) => {
+    screenName => {
       if (screenName === currentScreen) return;
 
       Animated.parallel([
@@ -92,18 +70,12 @@ const App = () => {
         try {
           await new Promise(resolve => setTimeout(resolve, 3500));
           const token = await AsyncStorage.getItem('userToken');
-
-          if (token) {
-            navigateTo('home');
-          } else {
-            navigateTo('login');
-          }
+          if (token) navigateTo('home');
+          else navigateTo('login');
         } catch (err) {
           navigateTo('login');
-          console.log('Error: ', err);
         }
       };
-
       checkAuthAndNavigate();
     }
   }, [currentScreen, navigateTo]);
@@ -116,98 +88,6 @@ const App = () => {
       console.log('Error logging out: ', err);
     }
   }, [navigateTo]);
-
-  const setupLocalExpiryTimer = useCallback(
-    token => {
-      try {
-        if (!token || typeof token !== 'string') return;
-
-        const base64Url = token.split('.')[1];
-        if (!base64Url) return;
-
-        let base64Str = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-        while (base64Str.length % 4 !== 0) {
-          base64Str += '=';
-        }
-
-        const jsonPayload = base64.decode(base64Str);
-        const payload = JSON.parse(jsonPayload);
-
-        const expiryInMs = payload.exp * 1000;
-        const timeLeft = expiryInMs - Date.now();
-
-        if (expirationTimer.current) clearTimeout(expirationTimer.current);
-
-        if (timeLeft > 0) {
-          console.log(
-            `Auto-logout set for ${Math.round(
-              timeLeft / 1000 / 60,
-            )} minutes from now.`,
-          );
-          expirationTimer.current = setTimeout(() => {
-            Alert.alert('Session Expired', 'Please log in again.');
-            handleLogout();
-          }, timeLeft);
-        } else {
-          console.warn('Token already expired, triggering logout.');
-          handleLogout();
-        }
-      } catch (e) {
-        console.error('Timer setup failed:', e);
-      }
-    },
-    [handleLogout],
-  );
-
-  const handleExpiredToken = useCallback(
-    async token => {
-      if (!token) return 'expired';
-
-      try {
-        const response = await fetch('http://0.0.0.0:3000/api/auth/verify', {
-          method: 'GET',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-
-        const data = await response.json();
-
-        if (response.status !== 200 || data.status === 'expired') {
-          return 'expired';
-        }
-
-        setupLocalExpiryTimer(token);
-        return 'valid';
-      } catch (err) {
-        console.error('Verification error:', err);
-        return 'expired';
-      }
-    },
-    [setupLocalExpiryTimer],
-  );
-
-  useEffect(() => {
-    const initAuth = async () => {
-      try {
-        await new Promise(resolve => setTimeout(resolve, 3000));
-
-        const token = await AsyncStorage.getItem('userToken');
-        const authStatus = await handleExpiredToken(token);
-
-        if (authStatus === 'expired') {
-          await handleLogout();
-        } else {
-          navigateTo('home');
-        }
-      } catch (err) {
-        navigateTo('login');
-      }
-    };
-
-    initAuth();
-  }, []);
 
   const handleNavigateMusic = useCallback(
     (track = null) => {
@@ -238,7 +118,9 @@ const App = () => {
             onNavigateInsights={() => navigateTo('insights')}
             onNavigateChatHistory={() => navigateTo('history')}
             onNavigateMusic={handleNavigateMusic}
-            onPressAI={() => {
+            onNavigateCBT={() => navigateTo('cbtLab')} 
+            onPressAI={(msg = null) => {
+              setProactiveMessage(msg);
               setSelectedSessionId(null);
               setIsChatVisible(true);
             }}
@@ -254,6 +136,7 @@ const App = () => {
             onNavigateEditProfile={() => navigateTo('editProfile')}
             onLogout={handleLogout}
             onPressAI={() => {
+              setProactiveMessage(null); 
               setSelectedSessionId(null);
               setIsChatVisible(true);
             }}
@@ -269,6 +152,7 @@ const App = () => {
             onNavigateInsights={() => navigateTo('insights')}
             onNavigateChatHistory={() => navigateTo('history')}
             onPressAI={() => {
+              setProactiveMessage(null);
               setSelectedSessionId(null);
               setIsChatVisible(true);
             }}
@@ -279,6 +163,7 @@ const App = () => {
           <HistoryScreen
             onSelectChat={id => {
               setSelectedSessionId(id);
+              setProactiveMessage(null);
               setIsChatVisible(true);
             }}
             onNavigateProfile={() => navigateTo('profile')}
@@ -286,6 +171,7 @@ const App = () => {
             onNavigateInsights={() => navigateTo('insights')}
             onNavigateChatHistory={() => navigateTo('history')}
             onPressAI={() => {
+              setProactiveMessage(null);
               setSelectedSessionId(null);
               setIsChatVisible(true);
             }}
@@ -295,12 +181,14 @@ const App = () => {
         return (
           <MusicScreen
             onBack={() => {
-              setRecommendedTrack(null); 
+              setRecommendedTrack(null);
               navigateTo('home');
             }}
             initialTrack={recommendedTrack}
           />
         );
+      case 'cbtLab':
+        return <CBTLabScreen onBack={() => navigateTo('home')} />;
       default:
         return <WelcomeScreen />;
     }
@@ -324,8 +212,10 @@ const App = () => {
           onClose={() => {
             setIsChatVisible(false);
             setSelectedSessionId(null);
+            setProactiveMessage(null); 
           }}
           sessionId={selectedSessionId}
+          initialMessage={proactiveMessage}
         />
       </View>
     </MusicProvider>

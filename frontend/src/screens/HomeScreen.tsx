@@ -18,7 +18,6 @@ import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import GradientBackground from '../components/GradientBackground';
 import NavigationBar from '../components/NavigationBar';
-import ChatOverlay from '../components/ChatOverlay';
 import apiClient from '../api/client';
 import { useMusic } from '../context/MusicContext';
 
@@ -28,6 +27,8 @@ const HomeScreen = ({
   onNavigateProfile,
   onNavigateChatHistory,
   onNavigateMusic,
+  onNavigateCBT,
+  onPressAI,
 }) => {
   const [streak, setStreak] = useState(null);
   const [mood, setMood] = useState('Reflective ✨');
@@ -35,7 +36,7 @@ const HomeScreen = ({
   const [loading, setLoading] = useState(true);
   const [isScanning, setIsScanning] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isChatVisible, setIsChatVisible] = useState(false);
+
   const { isPlaying } = useMusic();
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
@@ -77,7 +78,7 @@ const HomeScreen = ({
     } else {
       pulseAnim.setValue(1);
     }
-  }, [isPlaying]);
+  }, [isPlaying, pulseAnim]);
 
   const processImageForOCR = async result => {
     if (result.didCancel || !result.assets) return;
@@ -128,14 +129,40 @@ const HomeScreen = ({
         content: journalText,
       });
 
-      const { mood, streak, music_recommendation, emotion } = response.data;
+      const {
+        mood: newMood,
+        streak: newStreak,
+        music_recommendation,
+        emotion,
+        trigger_chat,
+        cbt_analysis,
+      } = response.data;
 
-      if (mood) setMood(mood);
-      if (streak !== undefined) setStreak(streak);
+      if (newMood) setMood(newMood);
+      if (newStreak !== undefined) setStreak(newStreak);
       setJournalText('');
       Keyboard.dismiss();
 
-      if (music_recommendation) {
+      const rawReframe =
+        cbt_analysis?.reframe || cbt_analysis?.reframed_thought || '';
+      const cleanReframe = rawReframe.replace(/"/g, '');
+
+      const rawDistortion = cbt_analysis?.distortion || 'a pattern';
+      const cleanDistortion = rawDistortion.replace(/"/g, '');
+
+      if (trigger_chat && cbt_analysis) {
+        Alert.alert(
+          'Hansei is thinking... ✨',
+          `I noticed a pattern of ${cleanDistortion.toLowerCase()} in your reflection.\n\n"${cleanReframe}"\n\nWould you like to talk about this?`,
+          [
+            { text: 'Not now', style: 'cancel' },
+            {
+              text: 'Let’s talk',
+              onPress: () => onPressAI(cleanReframe),
+            },
+          ],
+        );
+      } else if (music_recommendation) {
         Alert.alert(
           'Reflection Analyzed ✨',
           `You seem to be feeling ${emotion}.\n\nBased on your Hansei, we recommend listening to "${music_recommendation.title}" by ${music_recommendation.artist}.`,
@@ -151,6 +178,7 @@ const HomeScreen = ({
         Alert.alert('Entry Saved', 'Your daily reflection has been recorded.');
       }
     } catch (err) {
+      console.log('Error submitting journal:', err);
       Alert.alert('Error', 'Failed to save reflection.');
     } finally {
       setIsSubmitting(false);
@@ -260,6 +288,8 @@ const HomeScreen = ({
                     onPress={() => {
                       if (item.name === 'Music') {
                         onNavigateMusic();
+                      } else if (item.name === 'CBT Lab') {
+                        onNavigateCBT();
                       } else {
                         Alert.alert(
                           'Coming Soon',
@@ -279,7 +309,7 @@ const HomeScreen = ({
                       <MaterialIcons
                         name={isThisMusicPlaying ? 'graphic-eq' : item.icon}
                         size={32}
-                        color={isThisMusicPlaying ? '#004346' : '#004346'}
+                        color="#004346"
                       />
                     </Animated.View>
                     <Text
@@ -297,17 +327,13 @@ const HomeScreen = ({
           </View>
         </ScrollView>
       </SafeAreaView>
-      <ChatOverlay
-        visible={isChatVisible}
-        onClose={() => setIsChatVisible(false)}
-      />
+
       <NavigationBar
         onNavigateHome={onNavigateHome}
         onNavigateProfile={onNavigateProfile}
         onNavigateInsights={onNavigateInsights}
         onNavigateChatHistory={onNavigateChatHistory}
-        onPressAI={() => setIsChatVisible(true)}
-        onNavigateMusic={onNavigateMusic}
+        onPressAI={() => onPressAI(null)}
       />
     </View>
   );

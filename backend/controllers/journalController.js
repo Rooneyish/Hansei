@@ -68,6 +68,8 @@ async function submitJournal(req, res) {
     let aiConfidence = 0.0;
     let moodStatus = "Reflective ✨";
     let musicRecommendation = null;
+    let cbtLabResult = null;
+    let triggerChat = false;
 
     try {
       const aiResponse = await axios.post("http://127.0.0.1:8000/analyze", {
@@ -76,6 +78,7 @@ async function submitJournal(req, res) {
       aiEmotion = aiResponse.data.emotion;
       aiConfidence = aiResponse.data.confidence;
       moodStatus = aiResponse.data.status_text;
+      cbtLabResult = aiResponse.data.cbt_analysis;
 
       if (aiResponse.data.music_recommendation) {
         const rec = aiResponse.data.music_recommendation;
@@ -94,6 +97,36 @@ async function submitJournal(req, res) {
           };
         }
       }
+
+      if (cbtLabResult) {
+        const distortion = cbtLabResult.distortion || "General Reflection";
+        const thought = cbtLabResult.thought || content.substring(0, 100);
+        const reframe =
+          cbtLabResult.reframe ||
+          cbtLabResult.starter ||
+          "Let's reflect on this together.";
+
+        const distortionType = distortion.toLowerCase();
+
+        if (
+          distortionType !== "none" &&
+          distortionType !== "reflection" &&
+          distortionType !== "observation"
+        ) {
+          triggerChat = true;
+        }
+
+        await queries.saveCBTResult(
+          userId,
+          journalId,
+          distortion,
+          thought,
+          reframe,
+        );
+
+        cbtLabResult.reframe = reframe;
+        cbtLabResult.distortion = distortion;
+      }
     } catch (aiErr) {
       console.error("FastAPI Error: AI Engine unreachable.");
     }
@@ -106,8 +139,10 @@ async function submitJournal(req, res) {
       message: "Journal saved, mood, and streak updated!",
       mood: moodStatus,
       streak: streakData.streak_count,
-      emotion: aiEmotion, 
-      music_recommendation: musicRecommendation, 
+      emotion: aiEmotion,
+      music_recommendation: musicRecommendation,
+      cbt_analysis: cbtLabResult,
+      trigger_chat: triggerChat,
       entry: { ...entry, content: content },
     });
   } catch (err) {

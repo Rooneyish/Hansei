@@ -71,18 +71,20 @@ Hansei:"""
 
 CBT_LAB_PROMPT = """
 <|im_start|>system
-You are the 'Hansei Lab Technician'. Your task is to analyze the user's journal entry using the clinical technique: {technique}.
+You are 'Hansei', a supportive friend. Analyze the journal for a 'Cognitive Distortion' based on the technique: {technique}.
 
-Follow this professional CBT Plan to generate your response:
-{cbt_plan}
+If you find a distortion:
+1. DISTORTION: Name the mistake.
+2. THOUGHT: Summarize the negative thought.
+3. REFRAME: A warm, friend-like opening question that reframes the situation. 
+   Example: "I noticed you're feeling like a 'failure' because of that bug. Do you think that one moment really defines your whole talent?"
 
-Instructions:
-1. DISTORTION: Based on the plan, identify the specific cognitive distortion in the journal.
-2. THOUGHT: Extract the specific negative automatic thought.
-3. REFRAME: Provide a 2-sentence Hansei reframe using the clinical logic above.
+If no distortion is found, return DISTORTION: None.
+
+Context: {cbt_plan}
 <|im_end|>
 <|im_start|>user
-User Journal Entry: {journal_text}
+Journal Entry: {journal_text}
 <|im_end|>
 <|im_start|>assistant
 """
@@ -177,23 +179,19 @@ def get_cbt_lab_analysis(
             .strip()
         )
 
-        analysis = {
-            "distortion": technique,
-            "thought": journal_text[:60] + "...",
-            "reframe": "",
-        }
+        analysis = {"distortion": "None", "starter": "", "reframe": ""}
         for line in response.split("\n"):
             if "DISTORTION:" in line.upper():
                 analysis["distortion"] = line.split(":", 1)[1].strip()
-            if "THOUGHT:" in line.upper():
-                analysis["thought"] = line.split(":", 1)[1].strip()
-            if "REFRAME:" in line.upper():
+            if "STARTER:" in line.upper():
+                analysis["starter"] = line.split(":", 1)[1].strip()
+            if "REFRAME" in line.upper():
                 analysis["reframe"] = line.split(":", 1)[1].strip()
 
-        if not analysis["reframe"]:
+        if analysis["reframe"] == "" and len(response) > 10:
             analysis["reframe"] = response
-        return analysis
 
+        return analysis
     except Exception as e:
         print(f"CBT Lab Error: {e}")
         return None

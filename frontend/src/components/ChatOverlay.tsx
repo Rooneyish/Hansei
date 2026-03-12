@@ -55,7 +55,7 @@ const BreathingAvatar = () => {
   );
 };
 
-const ChatOverlay = ({ visible, onClose, sessionId = null }) => {
+const ChatOverlay = ({ visible, onClose, sessionId = null ,initialMessage = null}) => {
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -68,7 +68,17 @@ const ChatOverlay = ({ visible, onClose, sessionId = null }) => {
       if (sessionId) {
         setActiveSessionId(sessionId);
         fetchHistory(sessionId);
+      } else if (initialMessage) {
+        setActiveSessionId(null);
+        setMessages([
+          {
+            id: `proactive-${Date.now()}`,
+            text: initialMessage, 
+            sender: 'ai',
+          },
+        ]);
       } else {
+        setActiveSessionId(null);
         setMessages([
           {
             id: 'welcome',
@@ -76,13 +86,12 @@ const ChatOverlay = ({ visible, onClose, sessionId = null }) => {
             sender: 'ai',
           },
         ]);
-        setActiveSessionId(null);
       }
     } else {
       setMessages([]);
       setActiveSessionId(null);
     }
-  }, [visible, sessionId]);
+  }, [visible, sessionId, initialMessage]);
 
   const fetchHistory = async id => {
     setIsLoading(true);
@@ -131,7 +140,8 @@ const ChatOverlay = ({ visible, onClose, sessionId = null }) => {
 
     try {
       const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch('http://192.168.2.71:3000/api/chat', {     // on ethernet
+      const response = await fetch('http://192.168.2.71:3000/api/chat', {
+        // on ethernet
         // const response = await fetch('http://10.88.3.12:3000/api/chat', { // on hotspot
         method: 'POST',
         headers: {
@@ -218,7 +228,6 @@ const ChatOverlay = ({ visible, onClose, sessionId = null }) => {
       <View style={styles.modalOverlay}>
         <GradientBackground />
         <SafeAreaView style={styles.safeArea}>
-          {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity onPress={onClose} style={styles.iconBtn}>
               <MaterialIcons name="expand-more" size={32} color="#004346" />
