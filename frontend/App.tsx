@@ -13,32 +13,59 @@ import CBTLabScreen from './src/screens/CBTLabScreen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MusicProvider } from './src/context/MusicContext';
 import base64 from 'react-native-base64';
+import apiClient from './src/api/client';
 
 const App = () => {
   const [currentScreen, setCurrentScreen] = useState('welcome');
   const [recommendedTrack, setRecommendedTrack] = useState(null);
   const [isChatVisible, setIsChatVisible] = useState(false);
-  const [selectedSessionId, setSelectedSessionId] = useState(null);
-  const [proactiveMessage, setProactiveMessage] = useState(null);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
+    null,
+  );
+  const [proactiveMessage, setProactiveMessage] = useState<string | null>(null);
 
-  const expirationTimer = useRef(null);
   const fadeValue = useRef(new Animated.Value(1)).current;
   const scaleValue = useRef(new Animated.Value(1)).current;
 
+  const handlePressAI = useCallback(
+    async (msg: string | null = null, distortion: string | null = null) => {
+      if (msg) {
+        try {
+          const response = await apiClient.post('/chat/initiate-proactive', {
+            distortion: distortion || 'Reflection',
+            message: msg,
+          });
+
+          setSelectedSessionId(response.data.session_id);
+          setProactiveMessage(msg);
+        } catch (error) {
+          console.log('Persistence failed, using lazy storage fallback');
+          setSelectedSessionId(null);
+          setProactiveMessage(msg);
+        }
+      } else {
+        setSelectedSessionId(null);
+        setProactiveMessage(null);
+      }
+      setIsChatVisible(true);
+    },
+    [],
+  );
+
   const navigateTo = useCallback(
-    screenName => {
+    (screenName: string) => {
       if (screenName === currentScreen) return;
 
       Animated.parallel([
         Animated.timing(fadeValue, {
           toValue: 0,
-          duration: 350,
+          duration: 300,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
         Animated.timing(scaleValue, {
           toValue: 0.96,
-          duration: 350,
+          duration: 300,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
@@ -48,13 +75,12 @@ const App = () => {
         Animated.parallel([
           Animated.timing(fadeValue, {
             toValue: 1,
-            duration: 450,
-            easing: Easing.inOut(Easing.quad),
+            duration: 400,
             useNativeDriver: true,
           }),
           Animated.timing(scaleValue, {
             toValue: 1,
-            duration: 450,
+            duration: 400,
             easing: Easing.out(Easing.back(1)),
             useNativeDriver: true,
           }),
@@ -66,7 +92,7 @@ const App = () => {
 
   useEffect(() => {
     if (currentScreen === 'welcome') {
-      const checkAuthAndNavigate = async () => {
+      const checkAuth = async () => {
         try {
           await new Promise(resolve => setTimeout(resolve, 3500));
           const token = await AsyncStorage.getItem('userToken');
@@ -76,7 +102,7 @@ const App = () => {
           navigateTo('login');
         }
       };
-      checkAuthAndNavigate();
+      checkAuth();
     }
   }, [currentScreen, navigateTo]);
 
@@ -85,17 +111,9 @@ const App = () => {
       await AsyncStorage.removeItem('userToken');
       navigateTo('login');
     } catch (err) {
-      console.log('Error logging out: ', err);
+      console.log('Error logging out');
     }
   }, [navigateTo]);
-
-  const handleNavigateMusic = useCallback(
-    (track = null) => {
-      setRecommendedTrack(track);
-      navigateTo('music');
-    },
-    [navigateTo],
-  );
 
   const renderScreen = () => {
     switch (currentScreen) {
@@ -115,15 +133,14 @@ const App = () => {
           <HomeScreen
             onNavigateProfile={() => navigateTo('profile')}
             onNavigateHome={() => navigateTo('home')}
-            onNavigateInsights={() => navigateTo('insights')}
+            onNavigateInsights={() => navigateTo('history')}
             onNavigateChatHistory={() => navigateTo('history')}
-            onNavigateMusic={handleNavigateMusic}
-            onNavigateCBT={() => navigateTo('cbtLab')} 
-            onPressAI={(msg = null) => {
-              setProactiveMessage(msg);
-              setSelectedSessionId(null);
-              setIsChatVisible(true);
+            onNavigateMusic={track => {
+              setRecommendedTrack(track);
+              navigateTo('music');
             }}
+            onNavigateCBT={() => navigateTo('cbtLab')}
+            onPressAI={handlePressAI}
           />
         );
       case 'profile':
@@ -131,15 +148,11 @@ const App = () => {
           <UserProfileScreen
             onNavigateProfile={() => navigateTo('profile')}
             onNavigateHome={() => navigateTo('home')}
-            onNavigateInsights={() => navigateTo('insights')}
+            onNavigateInsights={() => navigateTo('history')}
             onNavigateChatHistory={() => navigateTo('history')}
             onNavigateEditProfile={() => navigateTo('editProfile')}
             onLogout={handleLogout}
-            onPressAI={() => {
-              setProactiveMessage(null); 
-              setSelectedSessionId(null);
-              setIsChatVisible(true);
-            }}
+            onPressAI={() => handlePressAI(null)}
           />
         );
       case 'editProfile':
@@ -149,32 +162,24 @@ const App = () => {
             onUpdateSuccess={() => navigateTo('profile')}
             onNavigateProfile={() => navigateTo('profile')}
             onNavigateHome={() => navigateTo('home')}
-            onNavigateInsights={() => navigateTo('insights')}
+            onNavigateInsights={() => navigateTo('history')}
             onNavigateChatHistory={() => navigateTo('history')}
-            onPressAI={() => {
-              setProactiveMessage(null);
-              setSelectedSessionId(null);
-              setIsChatVisible(true);
-            }}
+            onPressAI={() => handlePressAI(null)}
           />
         );
       case 'history':
         return (
           <HistoryScreen
             onSelectChat={id => {
-              setSelectedSessionId(id);
               setProactiveMessage(null);
+              setSelectedSessionId(id);
               setIsChatVisible(true);
             }}
             onNavigateProfile={() => navigateTo('profile')}
             onNavigateHome={() => navigateTo('home')}
-            onNavigateInsights={() => navigateTo('insights')}
+            onNavigateInsights={() => navigateTo('history')}
             onNavigateChatHistory={() => navigateTo('history')}
-            onPressAI={() => {
-              setProactiveMessage(null);
-              setSelectedSessionId(null);
-              setIsChatVisible(true);
-            }}
+            onPressAI={() => handlePressAI(null)}
           />
         );
       case 'music':
@@ -212,7 +217,7 @@ const App = () => {
           onClose={() => {
             setIsChatVisible(false);
             setSelectedSessionId(null);
-            setProactiveMessage(null); 
+            setProactiveMessage(null);
           }}
           sessionId={selectedSessionId}
           initialMessage={proactiveMessage}
@@ -223,10 +228,7 @@ const App = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#D5F3F3',
-  },
+  container: { flex: 1, backgroundColor: '#D5F3F3' },
 });
 
 export default App;

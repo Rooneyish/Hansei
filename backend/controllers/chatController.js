@@ -41,7 +41,7 @@ async function handleChat(req, res) {
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
     res.setHeader("X-Session-Id", sessionId);
-    res.setHeader("Access-Control-Expose-Headers", "X-Session-Id"); 
+    res.setHeader("Access-Control-Expose-Headers", "X-Session-Id");
 
     let fullAiReply = "";
 
@@ -99,14 +99,26 @@ async function listSessions(req, res) {
   try {
     const userId = req.user.id;
     const sessions = await queries.getAllUserSessions(userId);
-    const formatted = sessions.map((s) => ({
-      id: s.session_id,
-      start_time: s.start_time,
-      end_time: s.end_time,
-      preview_text: s.preview_text
-        ? decrypt(s.preview_text, KEY)
-        : "New Conversation",
-    }));
+
+    const formatted = sessions.map((s) => {
+      let decryptedPreview = "New Conversation";
+
+      if (s.preview_text) {
+        try {
+          decryptedPreview = decrypt(s.preview_text, KEY);
+        } catch (err) {
+          decryptedPreview = "Reflection in progress...";
+        }
+      }
+
+      return {
+        id: s.session_id,
+        title: s.title || "Mindful Reflection",
+        start_time: s.start_time, 
+        preview_text: decryptedPreview,
+      };
+    });
+
     res.json({ sessions: formatted });
   } catch (err) {
     console.error("List Sessions Error:", err.message);
@@ -131,9 +143,33 @@ async function startNewSession(req, res) {
   }
 }
 
+const initiateProactiveChat = async (req, res) => {
+  const { distortion, message } = req.body;
+  const userId = req.user.id;
+
+  try {
+    const sessionId = await queries.createProactiveSession(
+      userId,
+      distortion,
+      message,
+    );
+
+    return res.status(201).json({
+      session_id: sessionId,
+      message: "Proactive session persisted successfully",
+    });
+  } catch (err) {
+    console.error("Initiation error:", err);
+    return res
+      .status(500)
+      .json({ error: "Failed to initialize proactive session" });
+  }
+};
+
 module.exports = {
   handleChat,
   handleEndSession,
   listSessions,
   startNewSession,
+  initiateProactiveChat,
 };

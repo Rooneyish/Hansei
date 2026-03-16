@@ -55,7 +55,12 @@ const BreathingAvatar = () => {
   );
 };
 
-const ChatOverlay = ({ visible, onClose, sessionId = null ,initialMessage = null}) => {
+const ChatOverlay = ({
+  visible,
+  onClose,
+  sessionId = null,
+  initialMessage = null,
+}) => {
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -67,13 +72,24 @@ const ChatOverlay = ({ visible, onClose, sessionId = null ,initialMessage = null
     if (visible) {
       if (sessionId) {
         setActiveSessionId(sessionId);
+
+        if (initialMessage) {
+          setMessages([
+            {
+              id: `proactive-${Date.now()}`,
+              text: initialMessage,
+              sender: 'ai',
+            },
+          ]);
+        }
+
         fetchHistory(sessionId);
       } else if (initialMessage) {
         setActiveSessionId(null);
         setMessages([
           {
-            id: `proactive-${Date.now()}`,
-            text: initialMessage, 
+            id: `temp-${Date.now()}`,
+            text: initialMessage,
             sender: 'ai',
           },
         ]);
@@ -90,14 +106,26 @@ const ChatOverlay = ({ visible, onClose, sessionId = null ,initialMessage = null
     } else {
       setMessages([]);
       setActiveSessionId(null);
+      setIsLoading(false);
     }
-  }, [visible, sessionId, initialMessage]);
+  }, [visible, sessionId]);
 
   const fetchHistory = async id => {
     setIsLoading(true);
     try {
       const response = await apiClient.get(`/chat/history/${id}`);
-      setMessages(response.data.history);
+
+      const formattedHistory = response.data.history.map((m, idx) => {
+        const role = m.role || m.sender;
+
+        return {
+          id: m.id || m.message_id?.toString() || idx.toString(),
+          text: m.text || m.message_text || m.content || '',
+          sender: role === 'user' ? 'user' : 'ai',
+        };
+      });
+
+      setMessages(formattedHistory);
     } catch (error) {
       console.error('History fetch error:', error);
     } finally {
@@ -126,12 +154,10 @@ const ChatOverlay = ({ visible, onClose, sessionId = null ,initialMessage = null
       }
     }
 
-    const userMsgId = `user-${Date.now()}`;
     const aiMsgId = `ai-${Date.now()}`;
-
     setMessages(prev => [
       ...prev,
-      { id: userMsgId, text: userMsgText, sender: 'user' },
+      { id: `user-${Date.now()}`, text: userMsgText, sender: 'user' },
       { id: aiMsgId, text: '', sender: 'ai' },
     ]);
 
@@ -141,8 +167,6 @@ const ChatOverlay = ({ visible, onClose, sessionId = null ,initialMessage = null
     try {
       const token = await AsyncStorage.getItem('userToken');
       const response = await fetch('http://192.168.2.71:3000/api/chat', {
-        // on ethernet
-        // const response = await fetch('http://10.88.3.12:3000/api/chat', { // on hotspot
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -163,19 +187,9 @@ const ChatOverlay = ({ visible, onClose, sessionId = null ,initialMessage = null
 
       while (true) {
         const { done, value } = await reader.read();
+        if (done) break;
 
-        if (done) {
-          const finalChunk = decoder.decode();
-          if (finalChunk) {
-            accumulatedText += finalChunk;
-            setMessages(prev =>
-              prev.map(msg =>
-                msg.id === aiMsgId ? { ...msg, text: accumulatedText } : msg,
-              ),
-            );
-          }
-          break;
-        }
+        if (value === undefined) continue;
 
         const chunk = decoder.decode(value, { stream: true });
         accumulatedText += chunk;
@@ -191,7 +205,7 @@ const ChatOverlay = ({ visible, onClose, sessionId = null ,initialMessage = null
       setMessages(prev =>
         prev.map(msg =>
           msg.id === aiMsgId
-            ? { ...msg, text: "I lost my train of thought. Let's try again." }
+            ? { ...msg, text: 'I lost my thought. Can we try again?' }
             : msg,
         ),
       );
@@ -228,6 +242,7 @@ const ChatOverlay = ({ visible, onClose, sessionId = null ,initialMessage = null
       <View style={styles.modalOverlay}>
         <GradientBackground />
         <SafeAreaView style={styles.safeArea}>
+          {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity onPress={onClose} style={styles.iconBtn}>
               <MaterialIcons name="expand-more" size={32} color="#004346" />
@@ -329,7 +344,6 @@ const styles = StyleSheet.create({
     opacity: 0.5,
     textTransform: 'uppercase',
   },
-
   messageList: { paddingHorizontal: 20, paddingBottom: 20 },
   messageWrapper: {
     flexDirection: 'row',
@@ -338,7 +352,6 @@ const styles = StyleSheet.create({
   },
   userWrapper: { justifyContent: 'flex-end' },
   aiWrapper: { justifyContent: 'flex-start' },
-
   avatarContainer: {
     width: 32,
     height: 32,
@@ -349,13 +362,8 @@ const styles = StyleSheet.create({
     marginRight: 10,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.5)',
-    shadowColor: '#004346',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
   },
   miniLogo: { width: 30, height: 30, resizeMode: 'contain' },
-
   bubble: {
     maxWidth: '78%',
     paddingHorizontal: 18,
@@ -372,7 +380,6 @@ const styles = StyleSheet.create({
   messageText: { fontSize: 15, lineHeight: 22 },
   aiText: { color: '#004346', fontWeight: '500' },
   userText: { color: '#fff', fontWeight: '500' },
-
   inputSection: {
     paddingHorizontal: 20,
     paddingBottom: Platform.OS === 'ios' ? 10 : 20,
@@ -401,8 +408,7 @@ const styles = StyleSheet.create({
   },
   textInput: {
     flex: 1,
-    paddingTop: 10,
-    paddingBottom: 10,
+    paddingVertical: 10,
     paddingHorizontal: 10,
     fontSize: 16,
     color: '#004346',

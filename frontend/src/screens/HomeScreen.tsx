@@ -28,7 +28,7 @@ const HomeScreen = ({
   onNavigateChatHistory,
   onNavigateMusic,
   onNavigateCBT,
-  onPressAI,
+  onPressAI, 
 }) => {
   const [streak, setStreak] = useState(null);
   const [mood, setMood] = useState('Reflective ✨');
@@ -58,8 +58,9 @@ const HomeScreen = ({
   }, [fetchUserData]);
 
   useEffect(() => {
+    let animation = null;
     if (isPlaying) {
-      Animated.loop(
+      animation = Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, {
             toValue: 1.1,
@@ -74,10 +75,15 @@ const HomeScreen = ({
             useNativeDriver: true,
           }),
         ]),
-      ).start();
+      );
+      animation.start();
     } else {
+      pulseAnim.stopAnimation();
       pulseAnim.setValue(1);
     }
+    return () => {
+      if (animation) animation.stop();
+    };
   }, [isPlaying, pulseAnim]);
 
   const processImageForOCR = async result => {
@@ -119,7 +125,7 @@ const HomeScreen = ({
 
   const handleSubmitJournal = async () => {
     if (!journalText.trim()) {
-      Alert.alert('Empty Entry', 'Please write or scan some thoughts first.');
+      Alert.alert('Empty Entry', 'Please write some thoughts first.');
       return;
     }
 
@@ -145,24 +151,33 @@ const HomeScreen = ({
 
       const rawReframe =
         cbt_analysis?.reframe || cbt_analysis?.reframed_thought || '';
-      const cleanReframe = rawReframe.replace(/"/g, '');
+      const cleanReframe = rawReframe.replace(/[".]/g, '').trim();
 
-      const rawDistortion = cbt_analysis?.distortion || 'a pattern';
-      const cleanDistortion = rawDistortion.replace(/"/g, '');
+      const rawDistortion = cbt_analysis?.distortion || 'none';
+      const cleanDistortion = rawDistortion
+        .replace(/[".]/g, '')
+        .toLowerCase()
+        .trim();
 
-      if (trigger_chat && cbt_analysis) {
+      if (
+        trigger_chat &&
+        cbt_analysis &&
+        cleanDistortion !== 'none' &&
+        cleanDistortion !== 'reflection'
+      ) {
         Alert.alert(
           'Hansei is thinking... ✨',
-          `I noticed a pattern of ${cleanDistortion.toLowerCase()} in your reflection.\n\n"${cleanReframe}"\n\nWould you like to talk about this?`,
+          `I noticed a pattern of ${cleanDistortion} in your reflection.\n\n"${cleanReframe}"`,
           [
             { text: 'Not now', style: 'cancel' },
             {
               text: 'Let’s talk',
-              onPress: () => onPressAI(cleanReframe),
+              onPress: () => onPressAI(cleanReframe, cleanDistortion),
             },
           ],
         );
-      } else if (music_recommendation) {
+      }
+      else if (music_recommendation) {
         Alert.alert(
           'Reflection Analyzed ✨',
           `You seem to be feeling ${emotion}.\n\nBased on your Hansei, we recommend listening to "${music_recommendation.title}" by ${music_recommendation.artist}.`,
@@ -174,11 +189,12 @@ const HomeScreen = ({
             },
           ],
         );
-      } else {
+      }
+      else {
         Alert.alert('Entry Saved', 'Your daily reflection has been recorded.');
       }
     } catch (err) {
-      console.log('Error submitting journal:', err);
+      console.log('Submission Error:', err);
       Alert.alert('Error', 'Failed to save reflection.');
     } finally {
       setIsSubmitting(false);
@@ -189,6 +205,7 @@ const HomeScreen = ({
     <View style={styles.container}>
       <GradientBackground />
       <SafeAreaView style={styles.safeArea}>
+        {/* Header */}
         <View style={styles.headerRow}>
           <MaterialIcons name="sort" size={30} color="#004346" />
           <Image
@@ -202,6 +219,7 @@ const HomeScreen = ({
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
+          {/* Status Row */}
           <View style={styles.statusRow}>
             <View style={styles.statusBubble}>
               <Text style={styles.statusLabel}>STREAK</Text>
@@ -286,16 +304,13 @@ const HomeScreen = ({
                       isThisMusicPlaying && styles.activeMusicCard,
                     ]}
                     onPress={() => {
-                      if (item.name === 'Music') {
-                        onNavigateMusic();
-                      } else if (item.name === 'CBT Lab') {
-                        onNavigateCBT();
-                      } else {
+                      if (item.name === 'Music') onNavigateMusic();
+                      else if (item.name === 'CBT Lab') onNavigateCBT();
+                      else
                         Alert.alert(
                           'Coming Soon',
                           `${item.name} is under development.`,
                         );
-                      }
                     }}
                   >
                     <Animated.View
@@ -333,7 +348,7 @@ const HomeScreen = ({
         onNavigateProfile={onNavigateProfile}
         onNavigateInsights={onNavigateInsights}
         onNavigateChatHistory={onNavigateChatHistory}
-        onPressAI={() => onPressAI(null)}
+        onPressAI={() => onPressAI(null)} 
       />
     </View>
   );
@@ -458,14 +473,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.6)',
     borderWidth: 1,
   },
-  activeLabel: {
-    color: '#004346',
-    fontWeight: '900',
-  },
-  iconContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  activeLabel: { color: '#004346', fontWeight: '900' },
+  iconContainer: { justifyContent: 'center', alignItems: 'center' },
 });
 
 export default HomeScreen;

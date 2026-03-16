@@ -1,4 +1,6 @@
 const pool = require("./db");
+const KEY = Buffer.from(process.env.ENCRYPTION_KEY, "hex");
+const { encrypt } = require("../utils/crypto");
 
 async function registerUser(userModel) {
   const client = await pool.query("BEGIN");
@@ -193,12 +195,12 @@ async function findActiveChatSession(userId) {
 
 async function startNewChatSession(userId) {
   const query = `
-    INSERT INTO chat_sessions (user_id, start_time) 
-    VALUES ($1, NOW()) 
+    INSERT INTO chat_sessions (user_id, start_time, title) 
+    VALUES ($1, NOW(), $2) 
     RETURNING session_id
   `;
   try {
-    const result = await pool.query(query, [userId]);
+    const result = await pool.query(query, [userId, "New Reflection"]);
     return result.rows[0];
   } catch (err) {
     console.error("Error starting new chat session", err.stack);
@@ -257,14 +259,18 @@ async function getAllUserSessions(userId) {
   const query = `
     SELECT 
       s.session_id, 
+      s.title, 
       s.start_time, 
-      s.end_time,
-      (SELECT encrypted_text FROM chat_messages m 
-       WHERE m.session_id = s.session_id 
-       ORDER BY created_at ASC LIMIT 1) as preview_text
+      (
+        SELECT encrypted_text 
+        FROM chat_messages 
+        WHERE session_id = s.session_id 
+        ORDER BY created_at DESC 
+        LIMIT 1
+      ) AS preview_text
     FROM chat_sessions s
     WHERE s.user_id = $1
-    ORDER BY s.start_time DESC
+    ORDER BY s.start_time DESC; 
   `;
   const result = await pool.query(query, [userId]);
   return result.rows;
@@ -293,12 +299,12 @@ async function getAllMusic() {
 }
 
 async function getTrackById(id) {
-  const query = 'SELECT * FROM music_tracks WHERE id = $1';
-  try{
+  const query = "SELECT * FROM music_tracks WHERE id = $1";
+  try {
     const result = await pool.query(query, [id]);
     return result.rows[0];
-  } catch (err){
-    console.log("Cannot find music track with id: ", err.message)
+  } catch (err) {
+    console.log("Cannot find music track with id: ", err.message);
   }
 }
 
@@ -307,7 +313,13 @@ async function saveCBTResult(userId, journalId, distortion, thought, reframe) {
     INSERT INTO cbt_lab_results (user_id, journal_id, distortion_type, original_thought, reframed_thought)
     VALUES ($1, $2, $3, $4, $5) RETURNING *;
   `;
-  const result = await pool.query(query, [userId, journalId, distortion, thought, reframe]);
+  const result = await pool.query(query, [
+    userId,
+    journalId,
+    distortion,
+    thought,
+    reframe,
+  ]);
   return result.rows[0];
 }
 
@@ -319,6 +331,43 @@ async function getCBTHistory(userId) {
   `;
   const result = await pool.query(query, [userId]);
   return result.rows;
+}
+
+async function createProactiveSession(
+  userId,
+  distortionType,
+  initialAiMessage,
+) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const sessionQuery = `
+      INSERT INTO chat_sessions (user_id, title) 
+      VALUES ($1, $2) RETURNING session_id;
+    `;
+    const sessionResult = await client.query(sessionQuery, [
+      userId,
+      `Reframing: ${distortionType}`,
+    ]);
+    const sessionId = sessionResult.rows[0].session_id;
+
+    const encryptedAiMsg = encrypt(initialAiMessage, KEY);
+
+    const messageQuery = `
+      INSERT INTO chat_messages (session_id, role, encrypted_text) 
+      VALUES ($1, $2, $3);
+    `;
+    await client.query(messageQuery, [sessionId, "ai", encryptedAiMsg]);
+
+    await client.query("COMMIT");
+    return sessionId;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 module.exports = {
@@ -346,4 +395,5 @@ module.exports = {
   getTrackById,
   saveCBTResult,
   getCBTHistory,
+  createProactiveSession,
 };

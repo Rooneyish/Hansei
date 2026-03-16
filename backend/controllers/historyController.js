@@ -15,12 +15,27 @@ async function getChatHistory(req, res) {
 
     const messages = await queries.getMessagesBySessionId(sessionId);
 
-    const history = messages.map((msg) => ({
-      id: Math.random().toString(),
-      text: decrypt(msg.encrypted_text, KEY),
-      sender: msg.role === "user" ? "user" : "ai",
-      created_at: msg.created_at,
-    }));
+    const history = messages.map((msg) => {
+      let decryptedText = "Message unavailable";
+
+      if (msg.encrypted_text) {
+        try {
+          decryptedText = decrypt(msg.encrypted_text, KEY);
+        } catch (decErr) {
+          console.error("Decryption failed for message ID:", msg.message_id);
+          decryptedText = "[Encrypted Message]";
+        }
+      }
+
+      return {
+        id: msg.message_id
+          ? msg.message_id.toString()
+          : Math.random().toString(),
+        text: decryptedText,
+        sender: msg.role === "user" ? "user" : "ai",
+        created_at: msg.created_at,
+      };
+    });
 
     return res.json({ history });
   } catch (err) {
@@ -31,7 +46,7 @@ async function getChatHistory(req, res) {
 
 async function deleteChatHistory(req, res) {
   try {
-    const { sessionId }= req.params;
+    const { sessionId } = req.params;
     const userId = req.user.id;
 
     if (!sessionId) {
