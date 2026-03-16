@@ -12,7 +12,6 @@ import MusicScreen from './src/screens/MusicScreen';
 import CBTLabScreen from './src/screens/CBTLabScreen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MusicProvider } from './src/context/MusicContext';
-import base64 from 'react-native-base64';
 import apiClient from './src/api/client';
 
 const App = () => {
