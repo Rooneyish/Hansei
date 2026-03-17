@@ -24,6 +24,7 @@ from src.service import (
     get_music_recommendation,
     generate_stream,
     get_cbt_lab_analysis,
+    get_zen_intention,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -119,6 +120,11 @@ class ChatRequest(BaseModel):
     history: List[ChatMessage] = []
 
 
+class ZenIntentionRequest(BaseModel):
+    journal_text: str
+    emotion: str
+
+
 @app.post("/analyze")
 async def analyze_journal(request: JournalRequest):
     if not state.emotion_model:
@@ -174,6 +180,22 @@ async def chat_with_hansei(request: ChatRequest):
         ),
         media_type="text/plain",
     )
+
+
+@app.post("/ai/zen-intention")
+async def zen_intention(request: ZenIntentionRequest):
+    if not state.qwen_model:
+        raise HTTPException(status_code=503, detail="Qwen LLM not loaded")
+
+    intention = get_zen_intention(
+        request.journal_text,
+        request.emotion,
+        state.qwen_model,
+        state.qwen_tokenizer,
+        GPU_DEVICE,
+    )
+
+    return {"intention": intention}
 
 
 if __name__ == "__main__":

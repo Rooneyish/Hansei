@@ -28,7 +28,8 @@ const HomeScreen = ({
   onNavigateChatHistory,
   onNavigateMusic,
   onNavigateCBT,
-  onPressAI, 
+  onNavigateZenRoom,
+  onPressAI,
 }) => {
   const [streak, setStreak] = useState(null);
   const [mood, setMood] = useState('Reflective ✨');
@@ -176,8 +177,7 @@ const HomeScreen = ({
             },
           ],
         );
-      }
-      else if (music_recommendation) {
+      } else if (music_recommendation) {
         Alert.alert(
           'Reflection Analyzed ✨',
           `You seem to be feeling ${emotion}.\n\nBased on your Hansei, we recommend listening to "${music_recommendation.title}" by ${music_recommendation.artist}.`,
@@ -189,8 +189,7 @@ const HomeScreen = ({
             },
           ],
         );
-      }
-      else {
+      } else {
         Alert.alert('Entry Saved', 'Your daily reflection has been recorded.');
       }
     } catch (err) {
@@ -306,6 +305,7 @@ const HomeScreen = ({
                     onPress={() => {
                       if (item.name === 'Music') onNavigateMusic();
                       else if (item.name === 'CBT Lab') onNavigateCBT();
+                      else if (item.name === 'Zen Room') onNavigateZenRoom();
                       else
                         Alert.alert(
                           'Coming Soon',
@@ -348,7 +348,7 @@ const HomeScreen = ({
         onNavigateProfile={onNavigateProfile}
         onNavigateInsights={onNavigateInsights}
         onNavigateChatHistory={onNavigateChatHistory}
-        onPressAI={() => onPressAI(null)} 
+        onPressAI={() => onPressAI(null)}
       />
     </View>
   );

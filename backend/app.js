@@ -37,6 +37,9 @@ app.use("/api", require('./routes/musicRoutes'))
 // CBT routes
 app.use("/api/cbt", require('./routes/cbtRoutes'))
 
+// ZenRoom routes
+app.use("/api/zen-room", require('./routes/zenRoomRoutes'))
+
 
 
 app.listen(PORT, HOST, () => {

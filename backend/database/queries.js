@@ -370,6 +370,35 @@ async function createProactiveSession(
   }
 }
 
+async function createMeditationEntry(userId, type, duration, moodReflection) {
+  const query = `
+  INSERT INTO meditation_sessions (user_id, session_type, duration_seconds, mood_post_reflection) 
+             VALUES ($1, $2, $3, $4) RETURNING *
+  `;
+
+  const values = [userId, type, duration, moodReflection];
+
+  try {
+    const res = await pool.query(query, values);
+    return res.rows[0];
+  } catch (err) {
+    console.error("Database Error in saveMeditationSession:", err.stack);
+    throw err;
+  }
+}
+
+const getLatestJournal = async (userId) => {
+  const res = await pool.query(
+    `SELECT j.encrypted_journal_content AS text, e.primary_emotion 
+FROM journal_entries j
+LEFT JOIN emotion_analysis e ON j.journal_id = e.journal_id
+WHERE j.user_id = $1
+ORDER BY j.created_at DESC LIMIT 1;`,
+    [userId],
+  );
+  return res.rows[0];
+};
+
 module.exports = {
   registerUser,
   findUserByUsername,
@@ -396,4 +425,6 @@ module.exports = {
   saveCBTResult,
   getCBTHistory,
   createProactiveSession,
+  createMeditationEntry,
+  getLatestJournal,
 };

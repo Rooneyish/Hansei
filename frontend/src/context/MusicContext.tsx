@@ -29,6 +29,8 @@ interface MusicContextType {
   setLoopMode: (mode: number) => void;
   setIsShuffle: (shuffle: boolean) => void;
   handlePlayTrack: (track: Track) => void;
+  playTrackByTag: (tag: string) => void;
+  stopTrack: () => void;
   togglePlayback: () => void;
   handleNext: () => void;
   handlePrevious: () => void;
@@ -36,7 +38,6 @@ interface MusicContextType {
 }
 
 const MusicContext = createContext<MusicContextType | undefined>(undefined);
-
 Sound.setCategory('Playback');
 
 export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({
@@ -48,19 +49,11 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isPlaying, setIsPlaying] = useState(false);
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [loopMode, setLoopMode] = useState(0);
+  const [loopMode, setLoopMode] = useState(0); 
   const [isShuffle, setIsShuffle] = useState(false);
 
   const soundRef = useRef<Sound | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => {
-    fetchMusic();
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-      if (soundRef.current) soundRef.current.release();
-    };
-  }, []);
 
   const fetchMusic = async () => {
     try {
@@ -72,6 +65,14 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchMusic();
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (soundRef.current) soundRef.current.release();
+    };
+  }, []);
 
   useEffect(() => {
     if (isPlaying && soundRef.current) {
@@ -87,16 +88,13 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [isPlaying]);
 
   const handlePlayTrack = (track: Track) => {
-    if (timerRef.current) clearInterval(timerRef.current);
     if (soundRef.current) {
       soundRef.current.stop().release();
     }
 
     const sound = new Sound(track.url, '', error => {
-      if (error) {
-        console.error('Failed to load sound', error);
-        return;
-      }
+      if (error) return console.error('Failed to load', error);
+
       soundRef.current = sound;
       setCurrentTrack(track);
       setIsPlaying(true);
@@ -106,18 +104,35 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({
       sound.play(success => {
         if (success) {
           if (loopMode === 2) {
-            handlePlayTrack(track);
-          } else if (loopMode === 1) {
-            handleNext();
+            handlePlayTrack(track); 
           } else {
-            setIsPlaying(false);
-            setPosition(0);
+            handleNext(); 
           }
         } else {
           setIsPlaying(false);
         }
       });
     });
+  };
+
+  const playTrackByTag = (tag: string) => {
+    const zenTrack = playlist.find(
+      t =>
+        t.category.toLowerCase() === tag.toLowerCase() ||
+        t.title.toLowerCase().includes(tag.toLowerCase()),
+    );
+    if (zenTrack) handlePlayTrack(zenTrack);
+    else if (playlist.length > 0) handlePlayTrack(playlist[0]);
+  };
+
+  const stopTrack = () => {
+    if (soundRef.current) {
+      soundRef.current.stop(() => {
+        soundRef.current?.release();
+        soundRef.current = null;
+      });
+      setIsPlaying(false);
+    }
   };
 
   const togglePlayback = () => {
@@ -133,20 +148,18 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const handleNext = () => {
     if (!currentTrack || playlist.length === 0) return;
-    let nextIndex;
-    if (isShuffle) {
-      nextIndex = Math.floor(Math.random() * playlist.length);
-    } else {
-      const currentIndex = playlist.findIndex(t => t.id === currentTrack.id);
-      nextIndex = (currentIndex + 1) % playlist.length;
-    }
+    let nextIndex =
+      (playlist.findIndex(t => t.id === currentTrack.id) + 1) % playlist.length;
     handlePlayTrack(playlist[nextIndex]);
   };
 
   const handlePrevious = () => {
     if (!currentTrack || playlist.length === 0) return;
-    const currentIndex = playlist.findIndex(t => t.id === currentTrack.id);
-    const prevIndex = (currentIndex - 1 + playlist.length) % playlist.length;
+    let prevIndex =
+      (playlist.findIndex(t => t.id === currentTrack.id) -
+        1 +
+        playlist.length) %
+      playlist.length;
     handlePlayTrack(playlist[prevIndex]);
   };
 
@@ -171,6 +184,8 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({
         setLoopMode,
         setIsShuffle,
         handlePlayTrack,
+        playTrackByTag,
+        stopTrack,
         togglePlayback,
         handleNext,
         handlePrevious,

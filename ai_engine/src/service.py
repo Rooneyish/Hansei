@@ -3,6 +3,7 @@ import asyncio
 from transformers import TextIteratorStreamer
 from qdrant_client.http import models as rest
 import torch
+import re
 
 EMOTION_TO_MUSIC_MAP = {
     "admiration": "hopeful",
@@ -224,3 +225,26 @@ async def generate_stream(
     for new_text in streamer:
         yield new_text
         await asyncio.sleep(0.01)
+
+
+def get_zen_intention(
+    journal_text: str, predicted_emotion: str, qwen_model, qwen_tokenizer, device
+):
+    zen_prompt = f"""<|im_start|>system
+You are a Zen Master. Based on the user's journal, write ONE poetic and grounding sentence (max 15 words) for their meditation.
+RULES: No quotes. No intro text. If they are stressed, focus on 'releasing'. If happy, focus on 'presence'.<|im_end|>
+<|im_start|>user
+Emotion: {predicted_emotion}
+Journal: "{journal_text}"<|im_end|>
+<|im_start|>assistant
+"""
+    try:
+        inputs = qwen_tokenizer([zen_prompt], return_tensors="pt").to(device)
+        with torch.no_grad():
+            outputs = qwen_model.generate(**inputs, max_new_tokens=40, temperature=0.4)
+
+        response = qwen_tokenizer.decode(outputs[0], skip_special_tokens=True)
+        text = response.split("assistant")[-1].strip()
+        return re.sub(r'[""“”]', '', text)
+    except Exception:
+        return "In this moment, let your breath be your only anchor."

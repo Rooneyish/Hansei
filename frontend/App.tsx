@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Animated, View, StyleSheet, Easing, Alert } from 'react-native';
+import { Animated, View, StyleSheet, Easing} from 'react-native';
 import WelcomeScreen from './src/screens/WelcomeScreen';
 import RegistrationScreen from './src/screens/RegistrationScreen';
 import LoginScreen from './src/screens/LoginScreen';
@@ -10,6 +10,7 @@ import HistoryScreen from './src/screens/HistoryScreen';
 import ChatOverlay from './src/components/ChatOverlay';
 import MusicScreen from './src/screens/MusicScreen';
 import CBTLabScreen from './src/screens/CBTLabScreen';
+import ZenRoomScreen from './src/screens/ZenRoomScreen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MusicProvider } from './src/context/MusicContext';
 import apiClient from './src/api/client';
@@ -139,6 +140,7 @@ const App = () => {
               navigateTo('music');
             }}
             onNavigateCBT={() => navigateTo('cbtLab')}
+            onNavigateZenRoom={() => navigateTo('zenRoom')}
             onPressAI={handlePressAI}
           />
         );
@@ -193,6 +195,8 @@ const App = () => {
         );
       case 'cbtLab':
         return <CBTLabScreen onBack={() => navigateTo('home')} />;
+      case 'zenRoom':
+        return <ZenRoomScreen onBack={() => navigateTo('home')} />;
       default:
         return <WelcomeScreen />;
     }
