@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef} from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -126,6 +126,24 @@ const ZenRoomScreen = ({ onBack }) => {
     return () => clearInterval(interval);
   }, [isActive, seconds]);
 
+  const fetchIntention = useCallback(async () => {
+    setLoadingIntention(true);
+    try {
+      const response = await apiClient.get('/zen-room/intention');
+
+      if (response.data && response.data.intention) {
+        setIntention(response.data.intention);
+      } else {
+        setIntention('Find stillness in the rhythm of your breath.');
+      }
+    } catch (err) {
+      console.log('Error fetching Zen intention:', err);
+      setIntention('Let your thoughts pass like clouds in a vast sky.');
+    } finally {
+      setLoadingIntention(false);
+    }
+  }, []);
+
   const handleToggle = () => {
     if (isActive) handleEnd();
     else {
@@ -145,7 +163,7 @@ const ZenRoomScreen = ({ onBack }) => {
         'Session Too Short',
         'Practice for at least 3 minute to record your Hansei.',
       );
-      setSeconds(durationMins * 60); 
+      setSeconds(durationMins * 60);
     } else {
       setRecordedTime(timeSpent);
       setIsActive(false);
@@ -286,17 +304,46 @@ const ZenRoomScreen = ({ onBack }) => {
         onSave={async mood => {
           if (recordedTime >= 60) {
             try {
-              await apiClient.post('/zen-room/save', {
+              const response = await apiClient.post('/zen-room/save', {
                 type: selectedType.title,
                 duration: recordedTime,
                 moodReflection: mood,
               });
+
+              const { rewards } = response.data;
+
               setShowLog(false);
+
+              if (rewards && rewards.goldEarned > 0) {
+                Alert.alert(
+                  'Reflection Sealed ✨',
+                  `+${rewards.goldEarned} Gold Lacquer earned!${
+                    rewards.masterBonus > 0
+                      ? `\nMaster Bonus: +${rewards.masterBonus}!`
+                      : ''
+                  }`,
+                  [{ text: 'Deep Gratitude' }],
+                );
+              } else {
+                Alert.alert(
+                  'Session Saved',
+                  'Your practice has been recorded.',
+                );
+              }
+
+              fetchIntention();
             } catch (e) {
-              Alert.alert('Error', 'Server Error');
+              console.error('Save error:', e);
+              Alert.alert(
+                'Error',
+                'Could not reach the temple. Try saving again.',
+              );
             }
           } else {
-            Alert.alert('Session Too Short', 'Practice for at least 1 minute.');
+            Alert.alert(
+              'Session Too Short',
+              'Practice for at least 1 minute to earn rewards.',
+            );
             setShowLog(false);
           }
         }}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Animated, View, StyleSheet, Easing} from 'react-native';
+import { Animated, View, StyleSheet, Easing } from 'react-native';
 import WelcomeScreen from './src/screens/WelcomeScreen';
 import RegistrationScreen from './src/screens/RegistrationScreen';
 import LoginScreen from './src/screens/LoginScreen';
@@ -11,6 +11,7 @@ import ChatOverlay from './src/components/ChatOverlay';
 import MusicScreen from './src/screens/MusicScreen';
 import CBTLabScreen from './src/screens/CBTLabScreen';
 import ZenRoomScreen from './src/screens/ZenRoomScreen';
+import QuestScreen from './src/screens/QuestScreen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MusicProvider } from './src/context/MusicContext';
 import apiClient from './src/api/client';
@@ -26,9 +27,20 @@ const App = () => {
 
   const fadeValue = useRef(new Animated.Value(1)).current;
   const scaleValue = useRef(new Animated.Value(1)).current;
+  const [isCBTMode, setIsCBTMode] = useState(false);
+  const [activeDistortion, setActiveDistortion] = useState<string | null>(null);
+  const [activeThought, setActiveThought] = useState<string | null>(null);
 
   const handlePressAI = useCallback(
-    async (msg: string | null = null, distortion: string | null = null) => {
+    async (
+      msg: string | null = null,
+      distortion: string | null = null,
+      cbtReframe: boolean = false,
+    ) => {
+      setIsCBTMode(cbtReframe);
+      setActiveDistortion(distortion);
+      setActiveThought(msg);
+
       if (msg) {
         try {
           const response = await apiClient.post('/chat/initiate-proactive', {
@@ -141,6 +153,7 @@ const App = () => {
             }}
             onNavigateCBT={() => navigateTo('cbtLab')}
             onNavigateZenRoom={() => navigateTo('zenRoom')}
+            onNavigateQuests={() => navigateTo('quests')}
             onPressAI={handlePressAI}
           />
         );
@@ -153,7 +166,7 @@ const App = () => {
             onNavigateChatHistory={() => navigateTo('history')}
             onNavigateEditProfile={() => navigateTo('editProfile')}
             onLogout={handleLogout}
-            onPressAI={() => handlePressAI(null)}
+            onPressAI={() => handlePressAI(null, null, false)}
           />
         );
       case 'editProfile':
@@ -165,7 +178,7 @@ const App = () => {
             onNavigateHome={() => navigateTo('home')}
             onNavigateInsights={() => navigateTo('history')}
             onNavigateChatHistory={() => navigateTo('history')}
-            onPressAI={() => handlePressAI(null)}
+            onPressAI={() => handlePressAI(null, null, false)}
           />
         );
       case 'history':
@@ -180,7 +193,7 @@ const App = () => {
             onNavigateHome={() => navigateTo('home')}
             onNavigateInsights={() => navigateTo('history')}
             onNavigateChatHistory={() => navigateTo('history')}
-            onPressAI={() => handlePressAI(null)}
+            onPressAI={() => handlePressAI(null, null, false)}
           />
         );
       case 'music':
@@ -197,6 +210,9 @@ const App = () => {
         return <CBTLabScreen onBack={() => navigateTo('home')} />;
       case 'zenRoom':
         return <ZenRoomScreen onBack={() => navigateTo('home')} />;
+      case 'quests':
+        return <QuestScreen onBack={() => navigateTo('home')} />;
+
       default:
         return <WelcomeScreen />;
     }
@@ -221,9 +237,15 @@ const App = () => {
             setIsChatVisible(false);
             setSelectedSessionId(null);
             setProactiveMessage(null);
+            setIsCBTMode(false);
+            setActiveDistortion(null);
+            setActiveThought(null);
           }}
           sessionId={selectedSessionId}
           initialMessage={proactiveMessage}
+          isReframing={isCBTMode}
+          distortion={activeDistortion} 
+          originalThought={activeThought}
         />
       </View>
     </MusicProvider>

@@ -13,6 +13,7 @@ import {
   Image,
   Animated,
   Easing,
+  Alert,
 } from 'react-native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -23,7 +24,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const BreathingAvatar = () => {
   const pulseAnim = useRef(new Animated.Value(1)).current;
-
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
@@ -60,6 +60,9 @@ const ChatOverlay = ({
   onClose,
   sessionId = null,
   initialMessage = null,
+  isReframing = false,
+  distortion = null,
+  originalThought = null,
 }) => {
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
@@ -72,7 +75,6 @@ const ChatOverlay = ({
     if (visible) {
       if (sessionId) {
         setActiveSessionId(sessionId);
-
         if (initialMessage) {
           setMessages([
             {
@@ -82,16 +84,11 @@ const ChatOverlay = ({
             },
           ]);
         }
-
         fetchHistory(sessionId);
       } else if (initialMessage) {
         setActiveSessionId(null);
         setMessages([
-          {
-            id: `temp-${Date.now()}`,
-            text: initialMessage,
-            sender: 'ai',
-          },
+          { id: `temp-${Date.now()}`, text: initialMessage, sender: 'ai' },
         ]);
       } else {
         setActiveSessionId(null);
@@ -114,17 +111,14 @@ const ChatOverlay = ({
     setIsLoading(true);
     try {
       const response = await apiClient.get(`/chat/history/${id}`);
-
       const formattedHistory = response.data.history.map((m, idx) => {
         const role = m.role || m.sender;
-
         return {
           id: m.id || m.message_id?.toString() || idx.toString(),
           text: m.text || m.message_text || m.content || '',
           sender: role === 'user' ? 'user' : 'ai',
         };
       });
-
       setMessages(formattedHistory);
     } catch (error) {
       console.error('History fetch error:', error);
@@ -133,9 +127,52 @@ const ChatOverlay = ({
     }
   };
 
+  const handleSealReframe = async () => {
+    const aiMessages = messages.filter(m => m.sender === 'ai');
+    const lastAiResponse =
+      aiMessages.length > 0 ? aiMessages[aiMessages.length - 1].text : '';
+
+    if (lastAiResponse.length < 5) {
+      Alert.alert(
+        'Work in progress',
+        'Try talking a bit more with Hansei until you find a balanced thought.',
+      );
+      return;
+    }
+
+    try {
+      const response = await apiClient.post('/cbt/save', {
+        distortion: distortion, 
+        thought: originalThought, 
+        reframe: lastAiResponse, 
+      });
+
+      const { rewards } = response.data;
+
+      if (response.data.success) {
+        Alert.alert(
+          'Kintsugi Sealed ✨',
+          `+${
+            rewards?.goldEarned || 50
+          } Gold Lacquer earned!\n\nYou've repaired a crack in your reflection with gold.`,
+          [
+            {
+              text: 'Return to Home',
+              onPress: () => {
+                onClose(); 
+              },
+            },
+          ],
+        );
+      }
+    } catch (error) {
+      console.error('Seal Error:', error);
+      Alert.alert('Error', "The gold lacquer hasn't set. Please try again.");
+    }
+  };
+
   const sendMessage = async () => {
     if (!inputText.trim()) return;
-
     let currentSessionId = activeSessionId;
     const userMsgText = inputText.trim();
 
@@ -146,7 +183,6 @@ const ChatOverlay = ({
         currentSessionId = response.data.session_id;
         setActiveSessionId(currentSessionId);
       } catch (error) {
-        console.error('Failed to create session:', error);
         setIsLoading(false);
         return;
       } finally {
@@ -180,7 +216,6 @@ const ChatOverlay = ({
       });
 
       if (!response.ok) throw new Error('Connection failed');
-
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let accumulatedText = '';
@@ -188,12 +223,8 @@ const ChatOverlay = ({
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-
-        if (value === undefined) continue;
-
         const chunk = decoder.decode(value, { stream: true });
         accumulatedText += chunk;
-
         setMessages(prev =>
           prev.map(msg =>
             msg.id === aiMsgId ? { ...msg, text: accumulatedText } : msg,
@@ -201,7 +232,6 @@ const ChatOverlay = ({
         );
       }
     } catch (error) {
-      console.error('Chat Error:', error);
       setMessages(prev =>
         prev.map(msg =>
           msg.id === aiMsgId
@@ -242,19 +272,36 @@ const ChatOverlay = ({
       <View style={styles.modalOverlay}>
         <GradientBackground />
         <SafeAreaView style={styles.safeArea}>
-          {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity onPress={onClose} style={styles.iconBtn}>
               <MaterialIcons name="expand-more" size={32} color="#004346" />
             </TouchableOpacity>
+
             <View style={styles.headerCenter}>
-              <Text style={styles.headerTitle}>Hansei</Text>
+              <Text style={styles.headerTitle}>
+                {isReframing ? 'CBT Lab' : 'Hansei'}
+              </Text>
               <View style={styles.statusRow}>
                 <View style={styles.activeDot} />
-                <Text style={styles.statusText}>Listening</Text>
+                <Text style={styles.statusText}>
+                  {isReframing ? 'Repairing' : 'Listening'}
+                </Text>
               </View>
             </View>
-            <View style={{ width: 40 }} />
+
+            <View style={styles.headerRight}>
+              {isReframing ? (
+                <TouchableOpacity
+                  style={styles.sealBtn}
+                  onPress={handleSealReframe}
+                >
+                  <MaterialIcons name="auto-fix-high" size={20} color="#fff" />
+                  <Text style={styles.sealText}>Seal</Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={{ width: 40 }} />
+              )}
+            </View>
           </View>
 
           {isLoading ? (
@@ -292,7 +339,11 @@ const ChatOverlay = ({
               <View style={styles.inputContainer}>
                 <TextInput
                   style={styles.textInput}
-                  placeholder="Share your thoughts..."
+                  placeholder={
+                    isReframing
+                      ? 'Work through the thought...'
+                      : 'Share your thoughts...'
+                  }
                   placeholderTextColor="rgba(0, 67, 70, 0.4)"
                   value={inputText}
                   onChangeText={setInputText}
@@ -327,8 +378,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     paddingVertical: 10,
   },
-  headerCenter: { alignItems: 'center' },
+  headerCenter: { alignItems: 'center', flex: 1 },
+  headerRight: { minWidth: 60, alignItems: 'flex-end' },
   headerTitle: { fontSize: 18, fontWeight: '800', color: '#004346' },
+
+  sealBtn: {
+    backgroundColor: '#004346',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 15,
+    gap: 4,
+    elevation: 3,
+  },
+  sealText: { color: '#fff', fontSize: 12, fontWeight: '800' },
+
   statusRow: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
   activeDot: {
     width: 6,

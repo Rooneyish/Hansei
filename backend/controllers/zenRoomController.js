@@ -19,9 +19,12 @@ async function saveMeditationSession(req, res) {
       moodReflection,
     );
 
+    const rewards = await queries.updateDailyRitual(userId, "zen");
+
     res.status(201).json({
       success: true,
       data: result,
+      rewards: rewards,
     });
   } catch (error) {
     console.error("DB Error:", error);

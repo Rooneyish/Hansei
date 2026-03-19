@@ -53,7 +53,10 @@ async function getPasswordByUserId(userId) {
 
 async function showUserProfile(userId) {
   const query = `
-        SELECT u.user_id, u.username, u.email, p.streak_count, p.longest_streak, p.current_mood 
+        SELECT 
+            u.user_id, u.username, u.email, 
+            p.streak_count, p.longest_streak, p.current_mood,
+            p.total_gold, p.daily_journal, p.daily_cbt, p.daily_zen -- <--- ADD THESE
         FROM users u
         JOIN user_progress p ON u.user_id = p.user_id
         WHERE u.user_id = $1
@@ -399,6 +402,79 @@ ORDER BY j.created_at DESC LIMIT 1;`,
   return res.rows[0];
 };
 
+async function updateDailyRitual(userId, pillarType) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const pillarKey = `daily_${pillarType}`;
+
+    const updateRes = await client.query(
+      `
+      UPDATE user_progress 
+      SET 
+        daily_journal = CASE WHEN last_reset_date < CURRENT_DATE THEN FALSE ELSE daily_journal END,
+        daily_cbt = CASE WHEN last_reset_date < CURRENT_DATE THEN FALSE ELSE daily_cbt END,
+        daily_zen = CASE WHEN last_reset_date < CURRENT_DATE THEN FALSE ELSE daily_zen END,
+        last_reset_date = CURRENT_DATE
+      WHERE user_id = $1
+      RETURNING daily_journal, daily_cbt, daily_zen
+    `,
+      [userId],
+    );
+
+    const statusBeforeUpdate = updateRes.rows[0];
+    const alreadyDone = statusBeforeUpdate[pillarKey];
+
+    let goldEarned = 0;
+    let masterBonus = 0;
+
+    if (!alreadyDone) {
+      goldEarned = 50;
+
+      await client.query(
+        `UPDATE user_progress SET ${pillarKey} = TRUE, total_gold = total_gold + $1 
+         WHERE user_id = $2`,
+        [goldEarned, userId],
+      );
+
+      const finalCheck = await client.query(
+        `SELECT daily_journal, daily_cbt, daily_zen FROM user_progress WHERE user_id = $1`,
+        [userId],
+      );
+
+      const s = finalCheck.rows[0];
+      if (s.daily_journal && s.daily_cbt && s.daily_zen) {
+        masterBonus = 100;
+        await client.query(
+          `UPDATE user_progress SET total_gold = total_gold + $1 WHERE user_id = $2`,
+          [masterBonus, userId],
+        );
+      }
+    }
+
+    await client.query("COMMIT");
+    return { goldEarned, masterBonus, isNewPillar: !alreadyDone };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("Daily Ritual Error:", err);
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+async function saveCBTResult(userId, journalId, distortion, thought, reframe) {
+  const query = `
+    INSERT INTO cbt_lab_results (user_id, journal_id, distortion_type, original_thought, reframed_thought)
+    VALUES ($1, $2, $3, $4, $5) 
+    RETURNING *;
+  `;
+  const values = [userId, journalId || null, distortion, thought, reframe];
+  const res = await pool.query(query, values);
+  return res.rows[0];
+}
+
 module.exports = {
   registerUser,
   findUserByUsername,
@@ -427,4 +503,6 @@ module.exports = {
   createProactiveSession,
   createMeditationEntry,
   getLatestJournal,
+  updateDailyRitual,
+  saveCBTResult,
 };

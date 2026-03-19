@@ -134,6 +134,7 @@ async function submitJournal(req, res) {
     await queries.saveEmotionAnalysis(journalId, aiEmotion, aiConfidence);
     await queries.updateStatusAndMood(userId, moodStatus);
     const streakData = await queries.checkInUser(userId);
+    const rewards = await queries.updateDailyRitual(userId, "journal");
 
     res.status(201).json({
       message: "Journal saved, mood, and streak updated!",
@@ -143,6 +144,7 @@ async function submitJournal(req, res) {
       music_recommendation: musicRecommendation,
       cbt_analysis: cbtLabResult,
       trigger_chat: triggerChat,
+      rewards: rewards,
       entry: { ...entry, content: content },
     });
   } catch (err) {

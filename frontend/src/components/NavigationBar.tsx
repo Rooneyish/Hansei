@@ -46,7 +46,7 @@ const NavigationBar = ({
 
         <TouchableOpacity style={styles.navItem} onPress={onNavigateInsights}>
           <MaterialIcons
-            name="bubble-chart"
+            name="bar-chart"
             size={28}
             color="#004346"
           />

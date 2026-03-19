@@ -21,6 +21,21 @@ import NavigationBar from '../components/NavigationBar';
 import apiClient from '../api/client';
 import { useMusic } from '../context/MusicContext';
 
+const PillarIcon = ({ label, done, icon }) => (
+  <View style={styles.pillarItem}>
+    <View style={[styles.pillarCircle, done && styles.pillarCircleDone]}>
+      <MaterialIcons
+        name={done ? 'check' : icon}
+        size={18}
+        color={done ? '#fff' : 'rgba(0, 67, 70, 0.4)'}
+      />
+    </View>
+    <Text style={[styles.pillarLabel, done && styles.pillarLabelDone]}>
+      {label}
+    </Text>
+  </View>
+);
+
 const HomeScreen = ({
   onNavigateHome,
   onNavigateInsights,
@@ -29,6 +44,7 @@ const HomeScreen = ({
   onNavigateMusic,
   onNavigateCBT,
   onNavigateZenRoom,
+  onNavigateQuests,
   onPressAI,
 }) => {
   const [streak, setStreak] = useState(null);
@@ -37,6 +53,13 @@ const HomeScreen = ({
   const [loading, setLoading] = useState(true);
   const [isScanning, setIsScanning] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [progress, setProgress] = useState({
+    total_gold: 0,
+    daily_journal: false,
+    daily_cbt: false,
+    daily_zen: false,
+  });
 
   const { isPlaying } = useMusic();
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -47,6 +70,13 @@ const HomeScreen = ({
       const data = response.data.user;
       setStreak(data.current_streak || 0);
       setMood(data.current_mood || 'Reflective ✨');
+
+      setProgress({
+        total_gold: data.total_gold || 0,
+        daily_journal: data.daily_journal || false,
+        daily_cbt: data.daily_cbt || false,
+        daily_zen: data.daily_zen || false,
+      });
     } catch (err) {
       console.log('Error fetching profile:', err);
     } finally {
@@ -143,55 +173,78 @@ const HomeScreen = ({
         emotion,
         trigger_chat,
         cbt_analysis,
+        rewards,
       } = response.data;
 
-      if (newMood) setMood(newMood);
-      if (newStreak !== undefined) setStreak(newStreak);
       setJournalText('');
       Keyboard.dismiss();
 
-      const rawReframe =
-        cbt_analysis?.reframe || cbt_analysis?.reframed_thought || '';
-      const cleanReframe = rawReframe.replace(/[".]/g, '').trim();
+      if (newMood) setMood(newMood);
+      if (newStreak !== undefined) setStreak(newStreak);
+
+      const rewardText =
+        rewards?.goldEarned > 0
+          ? `\n\n✨ +${rewards.goldEarned} Gold Lacquer earned!`
+          : '';
 
       const rawDistortion = cbt_analysis?.distortion || 'none';
       const cleanDistortion = rawDistortion
         .replace(/[".]/g, '')
         .toLowerCase()
         .trim();
+      const rawReframe =
+        cbt_analysis?.reframe || cbt_analysis?.reframed_thought || '';
+      const cleanReframe = rawReframe.replace(/[".]/g, '').trim();
 
       if (
         trigger_chat &&
-        cbt_analysis &&
         cleanDistortion !== 'none' &&
         cleanDistortion !== 'reflection'
       ) {
         Alert.alert(
           'Hansei is thinking... ✨',
-          `I noticed a pattern of ${cleanDistortion} in your reflection.\n\n"${cleanReframe}"`,
+          `I noticed a pattern of ${cleanDistortion} in your reflection.${rewardText}\n\n"${cleanReframe}"`,
           [
-            { text: 'Not now', style: 'cancel' },
+            {
+              text: 'Not now',
+              style: 'cancel',
+              onPress: () => fetchUserData(),
+            },
             {
               text: 'Let’s talk',
-              onPress: () => onPressAI(cleanReframe, cleanDistortion),
+              onPress: () => {
+                fetchUserData();
+                onPressAI(cleanReframe, cleanDistortion, true);
+              },
             },
           ],
         );
-      } else if (music_recommendation) {
+        return;
+      }
+
+      if (music_recommendation) {
         Alert.alert(
           'Reflection Analyzed ✨',
-          `You seem to be feeling ${emotion}.\n\nBased on your Hansei, we recommend listening to "${music_recommendation.title}" by ${music_recommendation.artist}.`,
+          `You seem to be feeling ${emotion}.${rewardText}\n\nBased on your Hansei, we recommend: "${music_recommendation.title}"`,
           [
-            { text: 'Later', style: 'cancel' },
+            { text: 'Later', style: 'cancel', onPress: () => fetchUserData() },
             {
               text: 'Listen Now',
-              onPress: () => onNavigateMusic(music_recommendation),
+              onPress: () => {
+                fetchUserData();
+                onNavigateMusic(music_recommendation);
+              },
             },
           ],
         );
-      } else {
-        Alert.alert('Entry Saved', 'Your daily reflection has been recorded.');
+        return;
       }
+
+      Alert.alert(
+        'Entry Saved',
+        `Your daily reflection has been recorded.${rewardText}`,
+        [{ text: 'Seal Reflection', onPress: () => fetchUserData() }],
+      );
     } catch (err) {
       console.log('Submission Error:', err);
       Alert.alert('Error', 'Failed to save reflection.');
@@ -204,7 +257,6 @@ const HomeScreen = ({
     <View style={styles.container}>
       <GradientBackground />
       <SafeAreaView style={styles.safeArea}>
-        {/* Header */}
         <View style={styles.headerRow}>
           <MaterialIcons name="sort" size={30} color="#004346" />
           <Image
@@ -218,8 +270,15 @@ const HomeScreen = ({
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
-          {/* Status Row */}
+          <View style={styles.moodBar}>
+            <Text style={styles.statusLabel}>CURRENT EMOTION</Text>
+            <Text style={styles.moodValue}>{mood}</Text>
+          </View>
           <View style={styles.statusRow}>
+            <View style={styles.statusBubble}>
+              <Text style={styles.statusLabel}>GOLD</Text>
+              <Text style={styles.statusValue}>{progress.total_gold} 🏺</Text>
+            </View>
             <View style={styles.statusBubble}>
               <Text style={styles.statusLabel}>STREAK</Text>
               {streak === null ? (
@@ -228,9 +287,26 @@ const HomeScreen = ({
                 <Text style={styles.statusValue}>{streak} 🔥</Text>
               )}
             </View>
-            <View style={styles.statusBubble}>
-              <Text style={styles.statusLabel}>CURRENT EMOTION</Text>
-              <Text style={styles.statusValue}>{mood}</Text>
+          </View>
+
+          <View style={styles.ritualCard}>
+            <Text style={styles.ritualLabel}>DAILY RITUAL</Text>
+            <View style={styles.pillarRow}>
+              <PillarIcon
+                label="Journal"
+                done={progress.daily_journal}
+                icon="edit"
+              />
+              <PillarIcon
+                label="CBT"
+                done={progress.daily_cbt}
+                icon="psychology"
+              />
+              <PillarIcon
+                label="Zen"
+                done={progress.daily_zen}
+                icon="self-improvement"
+              />
             </View>
           </View>
 
@@ -294,7 +370,6 @@ const HomeScreen = ({
                 { name: 'Zen Room', icon: 'self-improvement' },
               ].map((item, idx) => {
                 const isThisMusicPlaying = item.name === 'Music' && isPlaying;
-
                 return (
                   <TouchableOpacity
                     key={idx}
@@ -306,6 +381,7 @@ const HomeScreen = ({
                       if (item.name === 'Music') onNavigateMusic();
                       else if (item.name === 'CBT Lab') onNavigateCBT();
                       else if (item.name === 'Zen Room') onNavigateZenRoom();
+                      else if (item.name === 'Quests') onNavigateQuests();
                       else
                         Alert.alert(
                           'Coming Soon',
@@ -366,14 +442,16 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
   },
   smallLogo: { width: 50, height: 50, resizeMode: 'contain' },
-  statusRow: { flexDirection: 'row', gap: 15 },
+
+  statusRow: { flexDirection: 'row', gap: 8, marginBottom: 5 },
   statusBubble: {
     flex: 1,
-    height: 100,
+    height: 80,
     backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    borderRadius: 30,
-    padding: 15,
+    borderRadius: 25,
+    padding: 8,
     justifyContent: 'center',
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.4)',
   },
@@ -382,16 +460,63 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#004346',
     opacity: 0.5,
-    letterSpacing: 1,
+    letterSpacing: 0.5,
   },
   statusValue: {
     fontSize: 18,
     fontWeight: '800',
     color: '#004346',
-    marginTop: 4,
+    marginTop: 2,
   },
+  statusValueMood: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#004346',
+    marginTop: 2,
+    textAlign: 'center',
+  },
+
+  ritualCard: {
+    marginTop: 5,
+    backgroundColor: 'rgba(255, 255, 255, 0.45)',
+    borderRadius: 25,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.6)',
+    marginBottom: 10,
+  },
+  ritualLabel: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#004346',
+    opacity: 0.6,
+    letterSpacing: 1.5,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  pillarRow: { flexDirection: 'row', justifyContent: 'space-around' },
+  pillarItem: { alignItems: 'center', gap: 5 },
+  pillarCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 67, 70, 0.1)',
+  },
+  pillarCircleDone: { backgroundColor: '#004346', borderColor: '#004346' },
+  pillarLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: 'rgba(0, 67, 70, 0.4)',
+  },
+  pillarLabelDone: { color: '#004346' },
+
   journalCard: {
-    marginTop: 25,
+    marginTop: 10,
     backgroundColor: 'rgba(255, 255, 255, 0.45)',
     borderRadius: 35,
     padding: 20,
@@ -439,6 +564,7 @@ const styles = StyleSheet.create({
     borderRadius: 15,
   },
   submitBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+
   activitySection: { marginTop: 30 },
   sectionTitle: {
     fontSize: 22,
@@ -475,6 +601,21 @@ const styles = StyleSheet.create({
   },
   activeLabel: { color: '#004346', fontWeight: '900' },
   iconContainer: { justifyContent: 'center', alignItems: 'center' },
+  moodBar: {
+    backgroundColor: 'rgba(255, 255, 255, 0.35)',
+    borderRadius: 25,
+    padding: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
+    marginBottom: 10,
+    alignItems: 'center',
+  },
+  moodValue: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#004346',
+    marginTop: 2,
+  },
 });
 
 export default HomeScreen;
