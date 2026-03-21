@@ -49,7 +49,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isPlaying, setIsPlaying] = useState(false);
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [loopMode, setLoopMode] = useState(0); 
+  const [loopMode, setLoopMode] = useState(0);
   const [isShuffle, setIsShuffle] = useState(false);
 
   const soundRef = useRef<Sound | null>(null);
@@ -60,7 +60,12 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({
       const response = await apiClient.get('/music/all');
       setPlaylist(response.data);
     } catch (err) {
-      console.error('Fetch Music Error:', err);
+      console.error('Fetch Music Error:', err.message);
+      if (err.response) {
+        console.log(err.response.data);
+      } else if (err.request) {
+        console.log('No response received. Check your IP/URL.');
+      }
     } finally {
       setLoading(false);
     }
@@ -104,9 +109,9 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({
       sound.play(success => {
         if (success) {
           if (loopMode === 2) {
-            handlePlayTrack(track); 
+            handlePlayTrack(track);
           } else {
-            handleNext(); 
+            handleNext();
           }
         } else {
           setIsPlaying(false);
@@ -148,8 +153,15 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const handleNext = () => {
     if (!currentTrack || playlist.length === 0) return;
-    let nextIndex =
-      (playlist.findIndex(t => t.id === currentTrack.id) + 1) % playlist.length;
+
+    let nextIndex;
+    if (isShuffle) {
+      nextIndex = Math.floor(Math.random() * playlist.length);
+    } else {
+      nextIndex =
+        (playlist.findIndex(t => t.id === currentTrack.id) + 1) %
+        playlist.length;
+    }
     handlePlayTrack(playlist[nextIndex]);
   };
 

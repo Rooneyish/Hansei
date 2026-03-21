@@ -475,6 +475,17 @@ async function saveCBTResult(userId, journalId, distortion, thought, reframe) {
   return res.rows[0];
 }
 
+async function saveBulkSession(userId, trackIds, duration, startAt, endAt) {
+  const query = `
+            INSERT INTO music_sessions (user_id, track_ids, total_minutes, start_at, end_at)
+            VALUES ($1, $2, $3, $4, $5)
+        `;
+  const values = [userId, trackIds, duration, startAt, endAt];
+  const res = await pool.query(query, values);
+  return res.rows[0];
+}
+
+
 module.exports = {
   registerUser,
   findUserByUsername,
@@ -505,4 +516,5 @@ module.exports = {
   getLatestJournal,
   updateDailyRitual,
   saveCBTResult,
+  saveBulkSession,
 };

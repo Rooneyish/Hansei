@@ -24,4 +24,37 @@ async function getAllMusic(req, res) {
   }
 }
 
-module.exports = { getAllMusic };
+async function saveBulkSession(req, res) {
+  try {
+    const userId = req.user.id;
+    const { trackIds, duration, startAt, endAt } = req.body;
+
+    if (!userId || !trackIds) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Missing required fields." });
+    }
+
+    const dbResult = await queries.saveBulkSession(
+      userId,
+      trackIds,
+      duration,
+      startAt,
+      endAt,
+    );
+
+    res.status(201).json({
+      success: true,
+      data: dbResult,
+    });
+  } catch (error) {
+    console.error("Saving Music Session Error: ", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Internal server error while saving session.",
+    });
+  }
+}
+
+module.exports = { getAllMusic, saveBulkSession };

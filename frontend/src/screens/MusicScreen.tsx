@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,10 +9,12 @@ import {
   ActivityIndicator,
   Modal,
   Dimensions,
+  Alert,
 } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import apiClient from '../api/client';
 import GradientBackground from '../components/GradientBackground';
 import { useMusic } from '../context/MusicContext';
 
@@ -37,21 +39,57 @@ const MusicScreen = ({ onBack, initialTrack }) => {
     setIsShuffle,
   } = useMusic();
 
+  const [isFullPlayerVisible, setIsFullPlayerVisible] = useState(false);
+
+  const sessionStartTime = useRef(new Date()); 
+  const playedTrackIds = useRef(new Set()); 
+
   useEffect(() => {
     if (initialTrack) {
       handlePlayTrack(initialTrack);
     }
   }, [initialTrack]);
 
-  const [isFullPlayerVisible, setIsFullPlayerVisible] = useState(false);
+  useEffect(() => {
+    if (currentTrack?.id) {
+      playedTrackIds.current.add(currentTrack.id);
+    }
+  }, [currentTrack?.id]);
 
-  const formatTime = (secs: number) => {
+  const saveFinalSession = async () => {
+    if (playedTrackIds.current.size === 0) return;
+
+    const endTime = new Date();
+    const totalDurationSeconds = Math.floor(
+      (endTime.getTime() - sessionStartTime.current.getTime()) / 1000,
+    );
+
+    try {
+      await apiClient.post('/music/sessions', {
+        trackIds: Array.from(playedTrackIds.current), 
+        duration: totalDurationSeconds,
+        startAt: sessionStartTime.current.toISOString(),
+        endAt: endTime.toISOString(),
+      });
+      console.log('Final bulk session saved successfully.');
+    } catch (error) {
+      console.error('Failed to save bulk music session:', error);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      saveFinalSession();
+    };
+  }, []);
+
+  const formatTime = secs => {
     const mins = Math.floor(secs / 60);
     const s = Math.floor(secs % 60);
     return `${mins}:${s < 10 ? '0' : ''}${s}`;
   };
 
-  const renderTrackItem = ({ item }: { item: any }) => (
+  const renderTrackItem = ({ item }) => (
     <TouchableOpacity
       style={[
         styles.trackCard,
@@ -88,7 +126,13 @@ const MusicScreen = ({ onBack, initialTrack }) => {
       <GradientBackground />
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={onBack} style={styles.backBtn}>
+          <TouchableOpacity
+            onPress={() => {
+              setIsFullPlayerVisible(false);
+              onBack();
+            }}
+            style={styles.backBtn}
+          >
             <MaterialIcons name="chevron-left" size={32} color="#004346" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Mindful Music</Text>
