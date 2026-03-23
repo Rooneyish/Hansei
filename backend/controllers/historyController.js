@@ -69,7 +69,40 @@ async function deleteChatHistory(req, res) {
   }
 }
 
+async function getActivityHistory(req, res) {
+  try {
+    const userId = req.user.id;
+
+    const activities = await queries.getActivityHistory(userId);
+
+    return res.json({ activities });
+  } catch (err) {
+    console.error("Activities Error:", err.message);
+    res.status(500).json({ error: "Could not load user activities" });
+  }
+}
+
+async function deleteActivityEntry(req, res) {
+  try {
+    const userId = req.user.id;
+    const { type, id } = req.params;
+
+    const deleted = await queries.deleteActivity(userId, type, id);
+
+    if (!deleted) {
+      return res.status(404).json({ error: "Activity not found" });
+    }
+
+    res.json({ success: true, message: "Activity deleted" });
+  } catch (err) {
+    console.error("Delete Activity Error:", err.message);
+    res.status(500).json({ error: "Could not delete activity" });
+  }
+}
+
 module.exports = {
   getChatHistory,
   deleteChatHistory,
+  getActivityHistory,
+  deleteActivityEntry
 };

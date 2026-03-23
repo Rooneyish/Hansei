@@ -485,6 +485,85 @@ async function saveBulkSession(userId, trackIds, duration, startAt, endAt) {
   return res.rows[0];
 }
 
+async function getActivityHistory(userId) {
+  const query = `
+    SELECT 
+      'journal' as type, 
+      journal_id::text as id, 
+      'Daily Reflection' as title, 
+      'Personal journal entry saved' as detail,
+      created_at 
+    FROM journal_entries 
+    WHERE user_id = $1
+
+    UNION ALL
+
+    SELECT 
+      'zen' as type, 
+      id::text as id, 
+      'Zen: ' || session_type as title, 
+      (duration_seconds / 60) || ' min session completed' as detail,
+      created_at 
+    FROM meditation_sessions 
+    WHERE user_id = $1
+
+    UNION ALL
+
+    SELECT 
+      'cbt' as type, 
+      id::text as id, 
+      'Reframe: ' || distortion_type as title, 
+      'Cognitive distortion repaired' as detail,
+      created_at 
+    FROM cbt_lab_results 
+    WHERE user_id = $1
+
+    UNION ALL
+
+    SELECT 
+      'music' as type, 
+      session_id::text as id, 
+      'Mindful Music' as title, 
+      COALESCE(total_minutes, 0) || ' min listening session' as detail,
+      start_at as created_at 
+    FROM music_sessions 
+    WHERE user_id = $1
+
+    ORDER BY created_at DESC;
+  `;
+
+  const res = await pool.query(query, [userId]);
+  return res.rows;
+}
+
+async function deleteActivity(userId, type, id) {
+  let tableName = "";
+  let idColumn = "id";
+
+  switch (type) {
+    case "journal":
+      tableName = "journal_entries";
+      idColumn = "journal_id";
+      break;
+    case "zen":
+      tableName = "meditation_sessions";
+      break;
+    case "cbt":
+      tableName = "cbt_lab_results";
+      break;
+    case "music":
+      tableName = "music_sessions";
+      idColumn = "session_id";
+      break;
+    default:
+      throw new Error("Invalid activity type");
+  }
+
+  const query = `DELETE FROM ${tableName} WHERE user_id = $1 AND ${idColumn} = $2`;
+  const res = await pool.query(query, [userId, id]);
+  return res.rowCount > 0;
+}
+
 
 module.exports = {
   registerUser,
@@ -515,6 +594,7 @@ module.exports = {
   createMeditationEntry,
   getLatestJournal,
   updateDailyRitual,
-  saveCBTResult,
   saveBulkSession,
+  getActivityHistory,
+  deleteActivity
 };

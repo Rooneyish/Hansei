@@ -35,9 +35,7 @@ const HistoryScreen = ({
     try {
       const [chatRes, activityRes] = await Promise.all([
         apiClient.get('/chat/sessions'),
-        apiClient
-          .get('/journal/activities')
-          .catch(() => ({ data: { activities: [] } })),
+        apiClient.get('/activities'),
       ]);
       setSessions(chatRes.data.sessions || []);
       setActivities(activityRes.data.activities || []);
@@ -71,6 +69,26 @@ const HistoryScreen = ({
             setSessions(prev => prev.filter(session => session.id !== id));
           } catch (err) {
             Alert.alert('Error', 'Could not delete.');
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleDeleteActivity = (type, id) => {
+    Alert.alert('Delete Activity', 'Remove this from your Hansei history?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await apiClient.delete(`/activities/${type}/${id}`);
+            setActivities(prev =>
+              prev.filter(act => !(act.type === type && act.id === id)),
+            );
+          } catch (err) {
+            Alert.alert('Error', 'Could not delete activity.');
           }
         },
       },
@@ -127,45 +145,61 @@ const HistoryScreen = ({
     </View>
   );
 
-  const renderActivityItem = ({ item }) => (
-    <View style={styles.card}>
-      <View style={styles.cardContent}>
-        <View
-          style={[
-            styles.iconContainer,
-            { backgroundColor: 'rgba(255, 255, 255, 0.5)' },
-          ]}
+  const renderActivityItem = ({ item }) => {
+    const typeConfig = {
+      journal: { icon: 'edit-note', color: '#004346', label: 'Reflection' },
+      zen: { icon: 'self-improvement', color: '#2A9D8F', label: 'Zen' },
+      cbt: { icon: 'auto-fix-high', color: '#E9C46A', label: 'CBT Repair' },
+      music: { icon: 'headset', color: '#457B9D', label: 'Music' },
+    };
+
+    const config = typeConfig[item.type] || { icon: 'stars', color: '#004346' };
+
+    return (
+      <View style={styles.card}>
+        <View style={styles.cardContent}>
+          <View
+            style={[
+              styles.iconContainer,
+              { backgroundColor: config.color + '15' },
+            ]}
+          >
+            <MaterialIcons name={config.icon} size={24} color={config.color} />
+          </View>
+          <View style={styles.textContainer}>
+            <View style={styles.activityHeader}>
+              <Text style={styles.dateLabel}>
+                {formatDate(item.created_at)}
+              </Text>
+              <View
+                style={[styles.typeBadge, { backgroundColor: config.color }]}
+              >
+                <Text style={styles.typeBadgeText}>{config.label}</Text>
+              </View>
+            </View>
+            <Text style={styles.mainText}>{item.title}</Text>
+            <Text style={styles.subText}>{item.detail}</Text>
+          </View>
+        </View>
+
+        <TouchableOpacity
+          onPress={() => handleDeleteActivity(item.type, item.id)}
+          style={styles.activityDeleteBtn}
         >
           <MaterialIcons
-            name={
-              item.type === 'music'
-                ? 'headset'
-                : item.type === 'zen'
-                ? 'self-improvement'
-                : 'psychology'
-            }
-            size={22}
-            color="#004346"
+            name="delete-outline"
+            size={18}
+            color="rgba(217, 83, 79, 0.4)"
           />
-        </View>
-        <View style={styles.textContainer}>
-          <Text style={styles.dateLabel}>{formatDate(item.created_at)}</Text>
-          <Text style={styles.mainText}>
-            {item.title || 'Practice Completed'}
-          </Text>
-          {item.duration && (
-            <Text style={styles.subText}>{item.duration} min session</Text>
-          )}
-        </View>
+        </TouchableOpacity>
       </View>
-    </View>
-  );
+    );
+  };
 
   return (
     <View style={styles.container}>
       <GradientBackground />
       <SafeAreaView style={styles.safeArea}>
-        {/* Header */}
         <View style={styles.headerRow}>
           <MaterialIcons name="sort" size={30} color="#004346" />
           <Image
@@ -355,6 +389,29 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#004346',
     marginTop: 15,
+  },
+  activityHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  typeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  typeBadgeText: {
+    color: '#fff',
+    fontSize: 8,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  activityDeleteBtn: {
+    padding: 10,
+    position: 'absolute',
+    right: 5,
+    bottom: 5,
   },
 });
 
