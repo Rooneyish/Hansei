@@ -1,32 +1,28 @@
 import React from 'react';
-import { View, Text, StyleSheet} from 'react-native';
-import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import { View, Text, StyleSheet, Image } from 'react-native';
 import { getKintsugiStage, KINTSUGI_MESSAGES } from '../utils/gamification';
+
+const VASE_IMAGES = {
+  1: require('../assets/shattered_vase.png'),
+  2: require('../assets/repaired_vase.png'),
+  3: require('../assets/golden_vase.png'),
+  4: require('../assets/masterpiece_vase.png'),
+};
 
 const KintsugiArtifact = ({ gold }) => {
   const stage = getKintsugiStage(gold);
   const message = KINTSUGI_MESSAGES[stage];
 
-  const getIcon = () => {
-    switch (stage) {
-      case 1:
-        return 'blur-on'; // Shattered
-      case 2:
-        return 'architecture'; // Joined
-      case 3:
-        return 'auto-fix-high'; // Golden
-      case 4:
-        return 'workspace-premium'; // Masterpiece
-      default:
-        return 'blur-on';
-    }
-  };
-
   return (
     <View style={styles.container}>
       <View style={styles.artifactCircle}>
-        <MaterialIcons name={getIcon()} size={80} color="#004346" />
         {stage >= 3 && <View style={styles.goldGlow} />}
+
+        <Image
+          source={VASE_IMAGES[stage] || VASE_IMAGES[1]}
+          style={styles.vaseImage}
+          resizeMode="contain"
+        />
       </View>
 
       <View style={styles.textContainer}>
@@ -51,22 +47,27 @@ const KintsugiArtifact = ({ gold }) => {
 const styles = StyleSheet.create({
   container: { alignItems: 'center', padding: 20 },
   artifactCircle: {
-    width: 180,
-    height: 180,
-    borderRadius: 90,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
     backgroundColor: 'rgba(255, 255, 255, 0.4)',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.6)',
     marginBottom: 20,
+    position: 'relative',
+  },
+  vaseImage: {
+    width: 140,
+    height: 140,
   },
   goldGlow: {
     position: 'absolute',
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    backgroundColor: 'rgba(255, 215, 0, 0.15)',
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: 'rgba(233, 196, 106, 0.4)', 
     zIndex: -1,
   },
   textContainer: { alignItems: 'center', marginBottom: 20 },
@@ -82,13 +83,14 @@ const styles = StyleSheet.create({
     opacity: 0.6,
     fontStyle: 'italic',
     textAlign: 'center',
+    paddingHorizontal: 20,
   },
   progressContainer: { width: '100%', alignItems: 'center' },
   progressBar: {
     width: '80%',
-    height: 6,
+    height: 8,
     backgroundColor: 'rgba(0, 67, 70, 0.1)',
-    borderRadius: 3,
+    borderRadius: 4,
     marginBottom: 10,
     overflow: 'hidden',
   },

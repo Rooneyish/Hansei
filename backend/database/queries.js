@@ -564,6 +564,31 @@ async function deleteActivity(userId, type, id) {
   return res.rowCount > 0;
 }
 
+async function getDashboardStats(userId, interval){
+  const query = `
+    SELECT 
+      (SELECT COUNT(*) FROM journal_entries 
+       WHERE user_id = $1 AND created_at > NOW() - $2::interval) as total_journals,
+      
+      (SELECT SUM(duration_seconds) FROM meditation_sessions 
+       WHERE user_id = $1 AND created_at > NOW() - $2::interval) as total_zen_seconds,
+      
+      (SELECT COUNT(*) FROM cbt_lab_results 
+       WHERE user_id = $1 AND created_at > NOW() - $2::interval) as total_reframes,
+      
+      (SELECT json_agg(t) FROM (
+          SELECT e.primary_emotion, COUNT(*) 
+          FROM emotion_analysis e
+          JOIN journal_entries j ON e.journal_id = j.journal_id
+          WHERE j.user_id = $1 AND j.created_at > NOW() - $2::interval
+          GROUP BY e.primary_emotion
+          ORDER BY count DESC
+      ) t) as emotion_distribution
+  `;
+
+  const res = await pool.query(query, [userId, interval]);
+  return res.rows[0];
+};
 
 module.exports = {
   registerUser,
@@ -596,5 +621,6 @@ module.exports = {
   updateDailyRitual,
   saveBulkSession,
   getActivityHistory,
-  deleteActivity
+  deleteActivity,
+  getDashboardStats,
 };

@@ -12,6 +12,7 @@ import MusicScreen from './src/screens/MusicScreen';
 import CBTLabScreen from './src/screens/CBTLabScreen';
 import ZenRoomScreen from './src/screens/ZenRoomScreen';
 import QuestScreen from './src/screens/QuestScreen';
+import InsightsScreen from './src/screens/InsightsScreen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MusicProvider } from './src/context/MusicContext';
 import apiClient from './src/api/client';
@@ -145,7 +146,7 @@ const App = () => {
           <HomeScreen
             onNavigateProfile={() => navigateTo('profile')}
             onNavigateHome={() => navigateTo('home')}
-            onNavigateInsights={() => navigateTo('history')}
+            onNavigateInsights={() => navigateTo('insights')}
             onNavigateChatHistory={() => navigateTo('history')}
             onNavigateMusic={track => {
               setRecommendedTrack(track);
@@ -162,7 +163,7 @@ const App = () => {
           <UserProfileScreen
             onNavigateProfile={() => navigateTo('profile')}
             onNavigateHome={() => navigateTo('home')}
-            onNavigateInsights={() => navigateTo('history')}
+            onNavigateInsights={() => navigateTo('insights')}
             onNavigateChatHistory={() => navigateTo('history')}
             onNavigateEditProfile={() => navigateTo('editProfile')}
             onLogout={handleLogout}
@@ -176,7 +177,7 @@ const App = () => {
             onUpdateSuccess={() => navigateTo('profile')}
             onNavigateProfile={() => navigateTo('profile')}
             onNavigateHome={() => navigateTo('home')}
-            onNavigateInsights={() => navigateTo('history')}
+            onNavigateInsights={() => navigateTo('insights')}
             onNavigateChatHistory={() => navigateTo('history')}
             onPressAI={() => handlePressAI(null, null, false)}
           />
@@ -191,7 +192,17 @@ const App = () => {
             }}
             onNavigateProfile={() => navigateTo('profile')}
             onNavigateHome={() => navigateTo('home')}
-            onNavigateInsights={() => navigateTo('history')}
+            onNavigateInsights={() => navigateTo('insights')}
+            onNavigateChatHistory={() => navigateTo('history')}
+            onPressAI={() => handlePressAI(null, null, false)}
+          />
+        );
+      case 'insights':
+        return (
+          <InsightsScreen
+            onNavigateProfile={() => navigateTo('profile')}
+            onNavigateHome={() => navigateTo('home')}
+            onNavigateInsights={() => navigateTo('insights')}
             onNavigateChatHistory={() => navigateTo('history')}
             onPressAI={() => handlePressAI(null, null, false)}
           />
@@ -212,7 +223,6 @@ const App = () => {
         return <ZenRoomScreen onBack={() => navigateTo('home')} />;
       case 'quests':
         return <QuestScreen onBack={() => navigateTo('home')} />;
-
       default:
         return <WelcomeScreen />;
     }
@@ -244,7 +254,7 @@ const App = () => {
           sessionId={selectedSessionId}
           initialMessage={proactiveMessage}
           isReframing={isCBTMode}
-          distortion={activeDistortion} 
+          distortion={activeDistortion}
           originalThought={activeThought}
         />
       </View>
