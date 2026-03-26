@@ -564,7 +564,7 @@ async function deleteActivity(userId, type, id) {
   return res.rowCount > 0;
 }
 
-async function getDashboardStats(userId, interval){
+async function getDashboardStats(userId, interval) {
   const query = `
     SELECT 
       (SELECT COUNT(*) FROM journal_entries 
@@ -588,7 +588,40 @@ async function getDashboardStats(userId, interval){
 
   const res = await pool.query(query, [userId, interval]);
   return res.rows[0];
-};
+}
+
+async function getPlatformStats() {
+  const statsQuery = `
+    SELECT 
+      (SELECT COUNT(*) FROM users) as total_users,
+      (SELECT COUNT(*) FROM journal_entries WHERE created_at > NOW() - INTERVAL '24 hours') as journals_today,
+      (SELECT COUNT(*) FROM meditation_sessions) as total_zen_sessions,
+      (SELECT COUNT(*) FROM cbt_lab_results) as total_repairs, -- Added CBT stats
+      (SELECT SUM(total_gold) FROM user_progress) as total_gold_awarded
+  `;
+
+  const userListQuery = `
+    SELECT user_id, username, email, role, created_at 
+    FROM users 
+    ORDER BY created_at DESC 
+    LIMIT 10
+  `;
+
+  try {
+    const [statsResult, usersResult] = await Promise.all([
+      pool.query(statsQuery),
+      pool.query(userListQuery),
+    ]);
+
+    return {
+      metrics: statsResult.rows[0],
+      recentUsers: usersResult.rows,
+    };
+  } catch (err) {
+    console.error("Database Error in getPlatformStats:", err);
+    throw err;
+  }
+}
 
 module.exports = {
   registerUser,
@@ -623,4 +656,5 @@ module.exports = {
   getActivityHistory,
   deleteActivity,
   getDashboardStats,
+  getPlatformStats,
 };

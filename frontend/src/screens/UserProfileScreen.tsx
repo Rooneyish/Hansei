@@ -21,15 +21,17 @@ const UserProfileScreen = ({
   onNavigateChatHistory,
   onLogout,
   onNavigateEditProfile,
+  onNavigateAdmin, // <--- New Prop
 }) => {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);  
+  const [loading, setLoading] = useState(true);
   const [isChatVisible, setIsChatVisible] = useState(false);
 
   useEffect(() => {
     apiClient
       .get('/profile')
       .then(res => setUser(res.data.user))
+      .catch(err => console.log('Profile Fetch Error:', err))
       .finally(() => setLoading(false));
   }, []);
 
@@ -44,7 +46,10 @@ const UserProfileScreen = ({
     <View style={styles.container}>
       <GradientBackground />
       <SafeAreaView style={styles.safeArea}>
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
           <Text style={styles.pageTitle}>Your Reflection Space</Text>
 
           <View style={styles.glassCard}>
@@ -62,13 +67,29 @@ const UserProfileScreen = ({
           </View>
 
           <View style={styles.menuContainer}>
+            {user?.role === 'admin' && (
+              <ProfileLink
+                icon="admin-panel-settings"
+                title="Admin Dashboard"
+                onPress={onNavigateAdmin}
+                isSpecial
+              />
+            )}
+
             <ProfileLink
               icon="edit"
               title="Edit Profile"
               onPress={onNavigateEditProfile}
             />
-            <ProfileLink icon="history" title="Reflection History" />
+
+            <ProfileLink
+              icon="history"
+              title="Reflection History"
+              onPress={onNavigateChatHistory}
+            />
+
             <ProfileLink icon="verified-user" title="Privacy & Security" />
+
             <ProfileLink
               icon="power-settings-new"
               title="Log Out"
@@ -78,30 +99,38 @@ const UserProfileScreen = ({
           </View>
         </ScrollView>
       </SafeAreaView>
+
       <ChatOverlay
         visible={isChatVisible}
         onClose={() => setIsChatVisible(false)}
       />
+
       <NavigationBar
         onNavigateHome={onNavigateHome}
         onNavigateProfile={onNavigateProfile}
         onNavigateInsights={onNavigateInsights}
         onNavigateChatHistory={onNavigateChatHistory}
-        onPressAI={()=>setIsChatVisible(true)}
+        onPressAI={() => setIsChatVisible(true)}
       />
     </View>
   );
 };
 
-const ProfileLink = ({ icon, title, isDanger, onPress }) => (
+const ProfileLink = ({ icon, title, isDanger, isSpecial, onPress }) => (
   <TouchableOpacity style={styles.linkRow} onPress={onPress}>
     <View style={styles.linkLeft}>
       <MaterialIcons
         name={icon}
         size={24}
-        color={isDanger ? '#d9534f' : '#004346'}
+        color={isDanger ? '#d9534f' : isSpecial ? '#2A9D8F' : '#004346'}
       />
-      <Text style={[styles.linkText, isDanger && { color: '#d9534f' }]}>
+      <Text
+        style={[
+          styles.linkText,
+          isDanger && { color: '#d9534f' },
+          isSpecial && { color: '#2A9D8F' },
+        ]}
+      >
         {title}
       </Text>
     </View>
@@ -152,6 +181,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     borderRadius: 30,
     padding: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   linkRow: {
     flexDirection: 'row',

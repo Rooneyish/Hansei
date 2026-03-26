@@ -13,6 +13,7 @@ import CBTLabScreen from './src/screens/CBTLabScreen';
 import ZenRoomScreen from './src/screens/ZenRoomScreen';
 import QuestScreen from './src/screens/QuestScreen';
 import InsightsScreen from './src/screens/InsightsScreen';
+import AdminDashboardScreen from './src/screens/AdminDashboardScreen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MusicProvider } from './src/context/MusicContext';
 import apiClient from './src/api/client';
@@ -31,6 +32,7 @@ const App = () => {
   const [isCBTMode, setIsCBTMode] = useState(false);
   const [activeDistortion, setActiveDistortion] = useState<string | null>(null);
   const [activeThought, setActiveThought] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   const handlePressAI = useCallback(
     async (
@@ -103,6 +105,19 @@ const App = () => {
     [fadeValue, scaleValue, currentScreen],
   );
 
+  const handleLoginSuccess = useCallback(
+    (role: string) => {
+      console.log('App handling login success for role:', role);
+      setUserRole(role);
+      if (role === 'admin') {
+        navigateTo('adminDashboard');
+      } else {
+        navigateTo('home');
+      }
+    },
+    [navigateTo],
+  );
+
   useEffect(() => {
     if (currentScreen === 'welcome') {
       const checkAuth = async () => {
@@ -122,9 +137,11 @@ const App = () => {
   const handleLogout = useCallback(async () => {
     try {
       await AsyncStorage.removeItem('userToken');
+      await AsyncStorage.removeItem('userRole');
+      setUserRole(null);
       navigateTo('login');
     } catch (err) {
-      console.log('Error logging out');
+      console.log('Logout Error:', err);
     }
   }, [navigateTo]);
 
@@ -136,7 +153,7 @@ const App = () => {
         return (
           <LoginScreen
             onNavigateRegister={() => navigateTo('register')}
-            onNavigateHome={() => navigateTo('home')}
+            onNavigateHome={role => handleLoginSuccess(role)}
           />
         );
       case 'register':
@@ -156,6 +173,12 @@ const App = () => {
             onNavigateZenRoom={() => navigateTo('zenRoom')}
             onNavigateQuests={() => navigateTo('quests')}
             onPressAI={handlePressAI}
+          />
+        );
+      case 'adminDashboard':
+        return (
+          <AdminDashboardScreen
+            onLogout={handleLogout}
           />
         );
       case 'profile':

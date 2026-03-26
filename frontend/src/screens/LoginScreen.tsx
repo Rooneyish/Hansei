@@ -25,8 +25,10 @@ const LoginScreen = ({ onNavigateRegister, onNavigateHome }) => {
         password,
       });
       const token = response.data.user.accessToken;
+      const role = response.data.user.role;
       await AsyncStorage.setItem('userToken', token);
-      onNavigateHome();
+      await AsyncStorage.setItem('userRole', role)
+      onNavigateHome(role);
     } catch (err) {
       const errorMsg = err.response?.data?.error || 'Something went wrong';
       Alert.alert('Login Error', errorMsg);

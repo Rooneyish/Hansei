@@ -12,7 +12,6 @@ async function loginUser(req, res) {
 
     try {
         const user = await queries.findUserByUsername(username);
-        console.log("User from DB:", user); 
         if (!user) {
             return res.status(401).json({ error: 'Invalid username or password' });
         }
@@ -25,7 +24,7 @@ async function loginUser(req, res) {
         const expiresTime = '7d';
 
         const accessToken = jwt.sign(
-            {id: user.user_id, username: user.username, email: user.email},
+            {id: user.user_id, username: user.username, email: user.email, role: user.role},
             process.env.ACCESS_TOKEN_SECRET, { expiresIn: expiresTime }
         );
 
@@ -36,7 +35,8 @@ async function loginUser(req, res) {
                 username: user.username,
                 email: user.email,
                 accessToken,
-                expiresIn: expiresTime
+                expiresIn: expiresTime,
+                role: user.role
             }
         });
     } catch (err) {

@@ -43,6 +43,9 @@ app.use("/api/zen-room", require("./routes/zenRoomRoutes"));
 // User Insights routes
 app.use("/api/insights", require("./routes/insightsRoutes"));
 
+// Admin routes
+app.use("/api/admin", require("./routes/adminRoutes"))
+
 app.listen(PORT, HOST, () => {
   console.log(`Server is running on http://${HOST}:${PORT}`);
 });
