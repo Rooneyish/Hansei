@@ -2,6 +2,7 @@ const axios = require("axios");
 const queries = require("../database/queries");
 const { encrypt, decrypt } = require("../utils/crypto");
 const KEY = Buffer.from(process.env.ENCRYPTION_KEY, "hex");
+const { detectCrisis } = require("../utils/crisisDetector");
 
 async function handleChat(req, res) {
   try {
@@ -11,6 +12,48 @@ async function handleChat(req, res) {
 
     if (!message) {
       return res.status(400).json({ error: "Message is required" });
+    }
+
+    const inCrisis = await queries.getCrisisMode(userId);
+    if (inCrisis) {
+      return res.status(403).json({
+        error: "Safety Lock Active",
+        isCrisis: true,
+        message:
+          "Your chat has been paused for your safety. Please reach out to a human professional.",
+      });
+    }
+
+    const isMessageCrisis = await detectCrisis(message);
+    if (isMessageCrisis) {
+      await queries.setCrisisMode(userId, true); 
+       await queries.logCrisisTrigger(userId, 'chat');
+
+      if (sessionId) {
+        await queries.endChatSession(sessionId);
+      } else {
+        let active = await queries.findActiveChatSession(userId);
+        if (active) await queries.endChatSession(active.session_id);
+      }
+
+      return res.status(403).json({
+        error: "Safety Protocol Activated",
+        isCrisis: true,
+        message:
+          "I'm not equipped to handle this level of crisis safely. Your chat session has been closed. Please contact emergency services immediately.",
+        helplines: [
+          {
+            region: "Nepal",
+            name: "TUTH Suicide Hotline",
+            number: "1660 012 2223",
+          },
+          {
+            region: "Nepal",
+            name: "Patan Hospital Helpline",
+            number: "9813111408",
+          },
+        ],
+      });
     }
 
     if (!sessionId) {
@@ -114,7 +157,7 @@ async function listSessions(req, res) {
       return {
         id: s.session_id,
         title: s.title || "Mindful Reflection",
-        start_time: s.start_time, 
+        start_time: s.start_time,
         preview_text: decryptedPreview,
       };
     });
@@ -166,10 +209,36 @@ const initiateProactiveChat = async (req, res) => {
   }
 };
 
+async function resolveCrisisMode(req, res) {
+  try {
+    const userId = req.user.id;
+    const { declaration } = req.body;
+
+    if (declaration !== "I am safe" && declaration !== "I have contacted support") {
+      return res.status(400).json({ 
+        error: "Please confirm your safety to continue using the chat." 
+      });
+    }
+
+    await queries.setCrisisMode(userId, false);
+    await queries.logCrisisResolution(userId);
+
+    return res.status(200).json({ 
+      success: true, 
+      message: "Safety lock removed. You can now use the chat again." 
+    });
+
+  } catch (err) {
+    console.error("Resolve Crisis Error:", err.message);
+    res.status(500).json({ error: "Failed to update safety status." });
+  }
+}
+
 module.exports = {
   handleChat,
   handleEndSession,
   listSessions,
   startNewSession,
   initiateProactiveChat,
+  resolveCrisisMode
 };

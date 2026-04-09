@@ -17,6 +17,7 @@ import AdminDashboardScreen from './src/screens/AdminDashboardScreen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MusicProvider } from './src/context/MusicContext';
 import apiClient from './src/api/client';
+import SafetyOverlay from './src/components/SafetyOverlay';
 
 const App = () => {
   const [currentScreen, setCurrentScreen] = useState('welcome');
@@ -33,6 +34,15 @@ const App = () => {
   const [activeDistortion, setActiveDistortion] = useState<string | null>(null);
   const [activeThought, setActiveThought] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
+
+  const [isSafetyScreenVisible, setIsSafetyScreenVisible] = useState(false);
+  const [crisisHelplines, setCrisisHelplines] = useState([]);
+
+  const handleCrisisDetected = useCallback(helplines => {
+    setIsChatVisible(false); 
+    setCrisisHelplines(helplines);
+    setIsSafetyScreenVisible(true);
+  }, []);
 
   const handlePressAI = useCallback(
     async (
@@ -53,7 +63,11 @@ const App = () => {
 
           setSelectedSessionId(response.data.session_id);
           setProactiveMessage(msg);
-        } catch (error) {
+        } catch (error: any) {
+          if (error.response?.status === 403 && error.response?.data?.isCrisis) {
+            handleCrisisDetected(error.response.data.helplines);
+            return;
+          }
           console.log('Persistence failed, using lazy storage fallback');
           setSelectedSessionId(null);
           setProactiveMessage(msg);
@@ -173,14 +187,11 @@ const App = () => {
             onNavigateZenRoom={() => navigateTo('zenRoom')}
             onNavigateQuests={() => navigateTo('quests')}
             onPressAI={handlePressAI}
+            onCrisisDetected={handleCrisisDetected}
           />
         );
       case 'adminDashboard':
-        return (
-          <AdminDashboardScreen
-            onLogout={handleLogout}
-          />
-        );
+        return <AdminDashboardScreen onLogout={handleLogout} />;
       case 'profile':
         return (
           <UserProfileScreen
@@ -279,6 +290,13 @@ const App = () => {
           isReframing={isCBTMode}
           distortion={activeDistortion}
           originalThought={activeThought}
+          onCrisisDetected={handleCrisisDetected}
+        />
+
+        <SafetyOverlay 
+          visible={isSafetyScreenVisible} 
+          helplines={crisisHelplines} 
+          onResolve={() => setIsSafetyScreenVisible(false)} 
         />
       </View>
     </MusicProvider>

@@ -3,6 +3,7 @@ const axios = require("axios");
 const queries = require("../database/queries");
 const { encrypt, decrypt } = require("../utils/crypto");
 const KEY = Buffer.from(process.env.ENCRYPTION_KEY, "hex");
+const { detectCrisis } = require("../utils/crisisDetector");
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -59,6 +60,40 @@ async function submitJournal(req, res) {
   }
 
   try {
+    const isCrisis = await detectCrisis(content);
+    if (isCrisis) {
+      if (isCrisis) {
+        await queries.setCrisisMode(userId, true); 
+        await queries.logCrisisTrigger(userId, 'journal');
+
+        const encryptedContent = encrypt(content, KEY);
+        await queries.createJournalEntry(userId, encryptedContent); 
+
+        return res.status(403).json({
+          success: false,
+          isCrisis: true,
+          message:
+            "We're deeply concerned about what you just shared. Our AI is not a substitute for professional help. Please reach out to emergency services.",
+          helplines: [
+            {
+              region: "Nepal",
+              name: "TUTH Suicide Hotline",
+              number: "1660 012 2223",
+            },
+            {
+              region: "Nepal",
+              name: "Patan Hospital Helpline",
+              number: "9813111408",
+            },
+            {
+              region: "Global",
+              name: "Find A Helpline",
+              url: "https://findahelpline.com/",
+            },
+          ],
+        });
+      }
+    }
     const encryptedContent = encrypt(content, KEY);
 
     const entry = await queries.createJournalEntry(userId, encryptedContent);

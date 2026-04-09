@@ -8,6 +8,7 @@ async function getPlatformStats(req, res) {
       success: true,
       stats: data.metrics,
       recentUsers: data.recentUsers,
+      safetyLogs: data.safetyLogs,
     });
   } catch (err) {
     console.error("Admin Stats Controller Error:", err);

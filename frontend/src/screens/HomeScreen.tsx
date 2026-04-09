@@ -46,6 +46,7 @@ const HomeScreen = ({
   onNavigateZenRoom,
   onNavigateQuests,
   onPressAI,
+  onCrisisDetected,
 }) => {
   const [streak, setStreak] = useState(null);
   const [mood, setMood] = useState('Reflective ✨');
@@ -178,7 +179,6 @@ const HomeScreen = ({
 
       setJournalText('');
       Keyboard.dismiss();
-
       if (newMood) setMood(newMood);
       if (newStreak !== undefined) setStreak(newStreak);
 
@@ -186,7 +186,6 @@ const HomeScreen = ({
         rewards?.goldEarned > 0
           ? `\n\n✨ +${rewards.goldEarned} Gold Lacquer earned!`
           : '';
-
       const rawDistortion = cbt_analysis?.distortion || 'none';
       const cleanDistortion = rawDistortion
         .replace(/[".]/g, '')
@@ -221,7 +220,6 @@ const HomeScreen = ({
         );
         return;
       }
-
       if (music_recommendation) {
         Alert.alert(
           'Reflection Analyzed ✨',
@@ -239,13 +237,21 @@ const HomeScreen = ({
         );
         return;
       }
-
       Alert.alert(
         'Entry Saved',
         `Your daily reflection has been recorded.${rewardText}`,
         [{ text: 'Seal Reflection', onPress: () => fetchUserData() }],
       );
     } catch (err) {
+      if (
+        err.response &&
+        err.response.status === 403 &&
+        err.response.data?.isCrisis
+      ) {
+        setJournalText(''); Keyboard.dismiss();
+        onCrisisDetected(err.response.data.helplines); 
+        return;
+      }
       console.log('Submission Error:', err);
       Alert.alert('Error', 'Failed to save reflection.');
     } finally {

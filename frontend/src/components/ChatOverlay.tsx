@@ -63,6 +63,7 @@ const ChatOverlay = ({
   isReframing = false,
   distortion = null,
   originalThought = null,
+  onCrisisDetected, 
 }) => {
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
@@ -142,9 +143,9 @@ const ChatOverlay = ({
 
     try {
       const response = await apiClient.post('/cbt/save', {
-        distortion: distortion, 
-        thought: originalThought, 
-        reframe: lastAiResponse, 
+        distortion: distortion,
+        thought: originalThought,
+        reframe: lastAiResponse,
       });
 
       const { rewards } = response.data;
@@ -159,7 +160,7 @@ const ChatOverlay = ({
             {
               text: 'Return to Home',
               onPress: () => {
-                onClose(); 
+                onClose();
               },
             },
           ],
@@ -202,7 +203,7 @@ const ChatOverlay = ({
 
     try {
       const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch('http://10.207.63.12:3000/api/chat', {
+      const response = await fetch('http://192.168.2.82:3000/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -215,7 +216,21 @@ const ChatOverlay = ({
         reactNative: { textStreaming: true },
       });
 
-      if (!response.ok) throw new Error('Connection failed');
+      if (!response.ok) {
+        try {
+          const errData = await response.json();
+          if (response.status === 403 && errData.isCrisis) {
+            setIsTyping(false);
+            onClose(); 
+            if (onCrisisDetected) onCrisisDetected(errData.helplines); 
+            return;
+          }
+        } catch (e) {
+          console.log('Could not parse error JSON', e);
+        }
+        throw new Error(`HTTP Error: ${response.status}`);
+      }
+
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let accumulatedText = '';
@@ -232,6 +247,8 @@ const ChatOverlay = ({
         );
       }
     } catch (error) {
+      console.error('🚨 Chat Fetch Error:', error); 
+
       setMessages(prev =>
         prev.map(msg =>
           msg.id === aiMsgId

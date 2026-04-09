@@ -590,13 +590,31 @@ async function getDashboardStats(userId, interval) {
   return res.rows[0];
 }
 
+async function logCrisisTrigger(userId, source) {
+  const query = `INSERT INTO crisis_logs (user_id, trigger_source) VALUES ($1, $2)`;
+  await pool.query(query, [userId, source]);
+}
+
+async function logCrisisResolution(userId) {
+  const query = `
+    UPDATE crisis_logs 
+    SET resolved_at = NOW() 
+    WHERE user_id = $1 AND resolved_at IS NULL
+  `;
+  await pool.query(query, [userId]);
+}
+
 async function getPlatformStats() {
   const statsQuery = `
     SELECT 
       (SELECT COUNT(*) FROM users) as total_users,
+      (SELECT COUNT(*) FROM user_progress WHERE last_activity > NOW() - INTERVAL '15 minutes') as online_users,
+      (SELECT COUNT(*) FROM user_progress WHERE in_crisis = TRUE) as current_active_crises,
+      
+      (SELECT COUNT(*) FROM crisis_logs) as total_crises_detected,
+      (SELECT COUNT(*) FROM crisis_logs WHERE resolved_at IS NOT NULL) as total_crises_resolved,
+      
       (SELECT COUNT(*) FROM journal_entries WHERE created_at > NOW() - INTERVAL '24 hours') as journals_today,
-      (SELECT COUNT(*) FROM meditation_sessions) as total_zen_sessions,
-      (SELECT COUNT(*) FROM cbt_lab_results) as total_repairs, -- Added CBT stats
       (SELECT SUM(total_gold) FROM user_progress) as total_gold_awarded
   `;
 
@@ -604,23 +622,45 @@ async function getPlatformStats() {
     SELECT user_id, username, email, role, created_at 
     FROM users 
     ORDER BY created_at DESC 
-    LIMIT 10
+    LIMIT 5
+  `;
+
+  const safetyLogsQuery = `
+    SELECT u.user_id, u.username, u.email, p.current_mood, p.last_activity
+    FROM users u
+    JOIN user_progress p ON u.user_id = p.user_id
+    WHERE p.in_crisis = TRUE
+    ORDER BY p.last_activity DESC
   `;
 
   try {
-    const [statsResult, usersResult] = await Promise.all([
+    const [statsResult, usersResult, safetyResult] = await Promise.all([
       pool.query(statsQuery),
       pool.query(userListQuery),
+      pool.query(safetyLogsQuery),
     ]);
 
     return {
       metrics: statsResult.rows[0],
       recentUsers: usersResult.rows,
+      safetyLogs: safetyResult.rows,
     };
   } catch (err) {
     console.error("Database Error in getPlatformStats:", err);
     throw err;
   }
+}
+
+async function getCrisisMode(userId) {
+  const query = `SELECT in_crisis FROM user_progress WHERE user_id = $1`;
+  const result = await pool.query(query, [userId]);
+  return result.rows[0]?.in_crisis || false;
+}
+
+async function setCrisisMode(userId, status) {
+  const query = `UPDATE user_progress SET in_crisis = $2 WHERE user_id = $1 RETURNING in_crisis`;
+  const result = await pool.query(query, [userId, status]);
+  return result.rows[0]?.in_crisis;
 }
 
 module.exports = {
@@ -657,4 +697,8 @@ module.exports = {
   deleteActivity,
   getDashboardStats,
   getPlatformStats,
+  getCrisisMode,
+  setCrisisMode,
+  logCrisisResolution,
+  logCrisisTrigger
 };
