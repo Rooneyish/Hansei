@@ -203,7 +203,7 @@ const ChatOverlay = ({
 
     try {
       const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch('http://192.168.2.82:3000/api/chat', {
+      const response = await fetch('http://192.168.2.13:3000/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

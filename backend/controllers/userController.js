@@ -1,6 +1,11 @@
 const queries = require("../database/queries");
 const bcrypt = require("bcryptjs");
 
+const USERNAME_REGEX = /^[a-zA-Z0-9_]{3,30}$/;
+const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+const PASSWORD_REGEX =
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+
 async function showUserProfile(req, res) {
   const userId = req.user.id;
   console.log("User ID:", userId);
@@ -52,13 +57,23 @@ async function updateProfile(req, res) {
   const updateField = {};
 
   if (username) {
+    if (!USERNAME_REGEX.test(username)) {
+      return res.status(400).json({
+        error:
+          "Username must be 3-30 characters and contain only letters, numbers, or underscores",
+      });
+    }
     const usernameExists = await queries.findUserByUsername(username);
     if (usernameExists && usernameExists.user_id !== parseInt(userId)) {
       return res.status(409).json({ error: "Username already exists" });
     }
     updateField.username = username;
   }
+
   if (email) {
+    if (!EMAIL_REGEX.test(email)) {
+      return res.status(400).json({ error: "Invalid email format" });
+    }
     const emailExists = await queries.findUserByEmail(email);
     if (emailExists && emailExists.user_id !== parseInt(userId)) {
       return res.status(409).json({ error: "Email already exists" });
@@ -101,6 +116,13 @@ async function passwordReset(req, res) {
 
   if (new_password !== confirm_password) {
     return res.status(400).json({ error: "Passwords do not match" });
+  }
+
+  if (!PASSWORD_REGEX.test(new_password)) {
+    return res.status(400).json({
+      error:
+        "New password must be at least 8 characters long and include uppercase, lowercase, a number, and a special character",
+    });
   }
 
   try {
