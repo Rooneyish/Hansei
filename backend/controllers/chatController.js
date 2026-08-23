@@ -108,7 +108,7 @@ async function handleChat(req, res) {
       aiResponse.data.destroy();
     });
   } catch (err) {
-    console.error("Chat Error:", err.message);
+    console.error("[CHAT] Error:", { userId: req.user?.id, error: err.message, stack: err.stack });
     if (!res.headersSent) {
       res.status(500).json({
         reply:
@@ -133,7 +133,7 @@ async function handleEndSession(req, res) {
 
     res.status(200).json({ message: "No active session to close" });
   } catch (err) {
-    console.error("End Session Error:", err.message);
+    console.error("[CHAT] End session error:", { userId, error: err.message });
     res.status(500).json({ error: "Failed to end session" });
   }
 }
@@ -164,7 +164,7 @@ async function listSessions(req, res) {
 
     res.json({ sessions: formatted });
   } catch (err) {
-    console.error("List Sessions Error:", err.message);
+    console.error("[CHAT] List sessions error:", { userId, error: err.message });
     res.status(500).json({ error: "Failed to fetch session list" });
   }
 }
@@ -181,7 +181,7 @@ async function startNewSession(req, res) {
     const newSession = await queries.startNewChatSession(userId);
     return res.json({ session_id: newSession.session_id });
   } catch (err) {
-    console.error("Start Session Error:", err.message);
+    console.error("[CHAT] Start session error:", { userId, error: err.message });
     res.status(500).json({ error: "Failed to start fresh session" });
   }
 }
@@ -202,7 +202,7 @@ const initiateProactiveChat = async (req, res) => {
       message: "Proactive session persisted successfully",
     });
   } catch (err) {
-    console.error("Initiation error:", err);
+    console.error("[CHAT] Proactive initiation error:", { userId, error: err.message });
     return res
       .status(500)
       .json({ error: "Failed to initialize proactive session" });
@@ -229,7 +229,7 @@ async function resolveCrisisMode(req, res) {
     });
 
   } catch (err) {
-    console.error("Resolve Crisis Error:", err.message);
+    console.error("[CHAT] Resolve crisis error:", { userId, error: err.message });
     res.status(500).json({ error: "Failed to update safety status." });
   }
 }

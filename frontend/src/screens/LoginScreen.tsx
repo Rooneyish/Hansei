@@ -25,8 +25,10 @@ const LoginScreen = ({ onNavigateRegister, onNavigateHome }) => {
         password,
       });
       const token = response.data.user.accessToken;
+      const refreshToken = response.data.user.refreshToken;
       const role = response.data.user.role;
       await AsyncStorage.setItem('userToken', token);
+      await AsyncStorage.setItem('refreshToken', refreshToken);
       await AsyncStorage.setItem('userRole', role)
       onNavigateHome(role);
     } catch (err) {

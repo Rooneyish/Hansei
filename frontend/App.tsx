@@ -151,6 +151,7 @@ const App = () => {
   const handleLogout = useCallback(async () => {
     try {
       await AsyncStorage.removeItem('userToken');
+      await AsyncStorage.removeItem('refreshToken');
       await AsyncStorage.removeItem('userRole');
       setUserRole(null);
       navigateTo('login');

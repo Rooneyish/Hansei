@@ -7,6 +7,7 @@ console.log("routes file loaded");
 router.post('/register', registerController.registerUser);
 router.post('/login', loginController.loginUser);
 router.post('/logout', loginController.logoutUser);
+router.post('/refresh', loginController.refreshToken);
 router.get('/verify', loginController.verifyToken)
 
 module.exports = router;

@@ -63,7 +63,7 @@ const ChatOverlay = ({
   isReframing = false,
   distortion = null,
   originalThought = null,
-  onCrisisDetected, 
+  onCrisisDetected,
 }) => {
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
@@ -153,8 +153,7 @@ const ChatOverlay = ({
       if (response.data.success) {
         Alert.alert(
           'Kintsugi Sealed ✨',
-          `+${
-            rewards?.goldEarned || 50
+          `+${rewards?.goldEarned || 50
           } Gold Lacquer earned!\n\nYou've repaired a crack in your reflection with gold.`,
           [
             {
@@ -221,8 +220,8 @@ const ChatOverlay = ({
           const errData = await response.json();
           if (response.status === 403 && errData.isCrisis) {
             setIsTyping(false);
-            onClose(); 
-            if (onCrisisDetected) onCrisisDetected(errData.helplines); 
+            onClose();
+            if (onCrisisDetected) onCrisisDetected(errData.helplines);
             return;
           }
         } catch (e) {
@@ -247,7 +246,7 @@ const ChatOverlay = ({
         );
       }
     } catch (error) {
-      console.error('🚨 Chat Fetch Error:', error); 
+      console.error('🚨 Chat Fetch Error:', error);
 
       setMessages(prev =>
         prev.map(msg =>

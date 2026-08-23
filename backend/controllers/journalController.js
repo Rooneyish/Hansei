@@ -62,38 +62,37 @@ async function submitJournal(req, res) {
   try {
     const isCrisis = await detectCrisis(content);
     if (isCrisis) {
-      if (isCrisis) {
-        await queries.setCrisisMode(userId, true); 
-        await queries.logCrisisTrigger(userId, 'journal');
+      await queries.setCrisisMode(userId, true); 
+      await queries.logCrisisTrigger(userId, 'journal');
 
-        const encryptedContent = encrypt(content, KEY);
-        await queries.createJournalEntry(userId, encryptedContent); 
+      const encryptedContent = encrypt(content, KEY);
+      await queries.createJournalEntry(userId, encryptedContent); 
 
-        return res.status(403).json({
-          success: false,
-          isCrisis: true,
-          message:
-            "We're deeply concerned about what you just shared. Our AI is not a substitute for professional help. Please reach out to emergency services.",
-          helplines: [
-            {
-              region: "Nepal",
-              name: "TUTH Suicide Hotline",
-              number: "1660 012 2223",
-            },
-            {
-              region: "Nepal",
-              name: "Patan Hospital Helpline",
-              number: "9813111408",
-            },
-            {
-              region: "Global",
-              name: "Find A Helpline",
-              url: "https://findahelpline.com/",
-            },
-          ],
-        });
-      }
+      return res.status(403).json({
+        success: false,
+        isCrisis: true,
+        message:
+          "We're deeply concerned about what you just shared. Our AI is not a substitute for professional help. Please reach out to emergency services.",
+        helplines: [
+          {
+            region: "Nepal",
+            name: "TUTH Suicide Hotline",
+            number: "1660 012 2223",
+          },
+          {
+            region: "Nepal",
+            name: "Patan Hospital Helpline",
+            number: "9813111408",
+          },
+          {
+            region: "Global",
+            name: "Find A Helpline",
+            url: "https://findahelpline.com/",
+          },
+        ],
+      });
     }
+
     const encryptedContent = encrypt(content, KEY);
 
     const entry = await queries.createJournalEntry(userId, encryptedContent);
@@ -163,7 +162,7 @@ async function submitJournal(req, res) {
         cbtLabResult.distortion = distortion;
       }
     } catch (aiErr) {
-      console.error("FastAPI Error: AI Engine unreachable.");
+      console.error("[JOURNAL] AI Engine unreachable:", { endpoint: "/analyze", error: aiErr.message });
     }
 
     await queries.saveEmotionAnalysis(journalId, aiEmotion, aiConfidence);
@@ -183,7 +182,7 @@ async function submitJournal(req, res) {
       entry: { ...entry, content: content },
     });
   } catch (err) {
-    console.error("Database Error:", err);
+    console.error("[JOURNAL] Database error:", { userId, error: err.message, stack: err.stack });
     res.status(500).json({ error: "Failed to save journal to database" });
   }
 }

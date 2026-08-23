@@ -45,6 +45,12 @@ async function findUserByEmail(email) {
   return result.rows[0];
 }
 
+async function findUserById(userId) {
+  const query = "SELECT * FROM users WHERE user_id = $1";
+  const result = await pool.query(query, [userId]);
+  return result.rows[0];
+}
+
 async function getPasswordByUserId(userId) {
   const query = "SELECT password_hash FROM users WHERE user_id = $1";
   const result = await pool.query(query, [userId]);
@@ -667,6 +673,7 @@ module.exports = {
   registerUser,
   findUserByUsername,
   findUserByEmail,
+  findUserById,
   updateUserProfile,
   showUserProfile,
   passwordReset,

@@ -47,8 +47,6 @@ app.use("/api/insights", require("./routes/insightsRoutes"));
 app.use("/api/admin", require("./routes/adminRoutes"))
 
 app.get("/test", (req, res) => { res.send("Server is live!"); });
-app.use("/assets", express.static(path.join(__dirname, "assets")));
-app.use("/api/auth", require("./routes/authRoutes"));
 
 app.listen(PORT, HOST, () => {
   console.log(`Server is running on http://${HOST}:${PORT}`);
